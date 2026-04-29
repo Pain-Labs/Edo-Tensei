@@ -16,6 +16,16 @@ When your AI quota runs out mid-task, switching to another IDE shouldn't mean lo
 
 **Edo Tensei** (穢土轉生, "Impure World Reincarnation") extracts local AI session histories from the IDEs installed on your machine and packages them into a ready-to-paste handoff prompt — so the next agent can pick up exactly where the last one left off.
 
+### The Lore & The Logic
+
+In *Naruto*, **Edo Tensei** (Impure World Reincarnation) is a forbidden jutsu that summons the souls of the deceased back to the living world, binding them to a vessel to restore their memories and abilities.
+
+This tool is named after this concept to symbolize "context reincarnation" in AI development:
+
+- **The Deceased**: An interrupted AI session (due to quota limits, crashes, or switching tools).
+- **The Vessel**: The **Handoff Prompt** extracted and packaged by this tool.
+- **The Reincarnation**: Pasting the prompt into a new IDE/agent, allowing the "dead" development context to be perfectly reborn in a new AI entity.
+
 ![Workflow](./docs/assets/workflow_guide.png)
 
 ---

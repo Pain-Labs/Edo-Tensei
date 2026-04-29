@@ -1,0 +1,50 @@
+# Source code (only bundle compiled dist/)
+src/**
+tsconfig.json
+*.map
+
+# Build config
+package-lock.json
+
+# IDE settings
+.vscode/
+.idea/
+.kiro/
+.claude/
+.cursor/
+.github/
+.agent/
+
+# Build artifacts
+*.vsix
+node_modules/
+
+# Internal docs (not needed in the packaged extension)
+docs/session-handoff/
+docs/index.html
+docs/robots.txt
+docs/llms*.txt
+docs/BRANDING_INVENTORY.md
+docs/LOGO_CONCEPTS_MANGA.md
+docs/LOGO_CONCEPTS_TECH.md
+
+# Logo candidates (design drafts, not needed at runtime)
+docs/assets/candidates/
+
+# Unused asset sizes (keep only 128 which is referenced by package.json)
+docs/assets/edo_tensei_logo.png
+docs/assets/edo_tensei_logo_64.png
+docs/assets/edo_tensei_logo_256.png
+
+# Development files
+DEVELOPMENT.md
+
+# Keep the following (will be bundled):
+# - README.md
+# - docs/README.*.md
+# - CHANGELOG.md
+# - LICENSE
+# - package.json
+# - dist/extension.js
+# - docs/assets/edo_tensei_logo_128.png  (extension icon)
+# - docs/assets/hero_banner.png          (README hero image)

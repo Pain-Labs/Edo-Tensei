@@ -1,0 +1,142 @@
+# Edo Tensei Full Context Documentation
+> This file contains the complete text of all key documentation for Edo Tensei, intended for use by AI agents and LLMs.
+
+---
+# Edo Tensei – AI Session Handoff Manager
+
+Edo Tensei is a VS Code extension that extracts local AI session histories from multiple IDEs and packages them into a ready-to-paste handoff prompt. When an AI quota or session limit runs out mid-task, switching IDEs normally means losing all conversation history. Edo Tensei makes the handoff one click.
+
+## Supported IDEs
+
+| IDE / Agent | Local Storage | Notes |
+| :--- | :--- | :--- |
+| GitHub Copilot Chat | %APPDATA%/Code/User/…/chatSessions/ | JSON & JSONL |
+| Cursor | ~/.cursor/projects/ | JSONL |
+| Claude Code CLI | ~/.claude/projects/ | JSONL |
+| OpenAI Codex CLI | ~/.codex/ | JSONL |
+| Kiro | %APPDATA%/Kiro/…/kiroagent/ | JSON (.chat) |
+| Windsurf | ~/.codeium/windsurf/cascade/ | Binary (path-only handoff) |
+| Antigravity | ~/.gemini/antigravity/brain/ | Preview log only |
+
+## Key Features
+
+- Multi-IDE Extraction: Automatically scans all supported IDEs, grouped by IDE → Project → Session.
+- Project-Scoped Scan: Filters to sessions matching the current workspace.
+- Two Handoff Modes:
+  - Path mode (default): Outputs session file path + per-IDE reading guide. Token-efficient.
+  - Full-text mode: Embeds the complete conversation.
+- One-Click Resurrect: Copies formatted handoff prompt to clipboard.
+- Export to .edo_tensei/: Saves prompts as Markdown, organized by IDE/project/timestamp.
+- Raw File Preview: Opens original session file in VS Code.
+- .gitignore Helper: Prompts to add .edo_tensei/ to avoid accidental commits.
+
+## Configuration
+
+- edoTensei.handoffMode: "path" (default) or "fullText"
+- edoTensei.promptLanguage: "English" (default) or "Traditional Chinese"
+- edoTensei.customScanPaths: Object overriding default scan paths per IDE
+
+## Commands
+
+- Scan Project Sessions: Find sessions matching current workspace
+- Fetch ALL Historical Sessions: Scan every IDE
+- Copy Handoff Prompt: Copy handoff prompt for selected session
+- View Parsed Session: Open Markdown preview
+- Preview Raw Session File: Open original session file
+- Copy Raw File Path: Copy session file path
+- Export Session to .edo_tensei: Save as Markdown file
+- Export All Sessions to .edo_tensei: Save all scanned sessions
+
+## Privacy
+
+Completely local-first. All extraction and parsing runs on your machine. No data is sent to any external server.
+
+## Known Limitations
+
+- Trae: Not yet supported (SQLCipher encryption, no public key).
+- Windsurf: Binary protobuf format. Path mode only.
+- Antigravity: Preview log only (~900 chars/message). Full history in cloud only.
+
+---
+## Architecture
+
+The extension is structured as:
+
+- extension.ts: Entry point, command registration, .gitignore helper, file system watcher
+- core/SessionHandoffService.ts: Orchestrates all extractors in parallel, caches results, builds handoff prompts
+- core/extractors/types.ts: IChatExtractor interface, CapturedSession and ChatMessage types
+- core/extractors/*Extractor.ts: One extractor per IDE, all implement IChatExtractor
+- ui/SessionHandoffProvider.ts: TreeDataProvider for the Activity Bar sidebar
+
+### IChatExtractor Interface
+
+Every extractor implements:
+- ideId: string — identifies the IDE (e.g. "copilot", "claude", "cursor")
+- extract(workspacePath?, customScanPaths?): Promise<CapturedSession> — returns most recent session
+- extractAll(workspacePath?, customScanPaths?): Promise<CapturedSession[]> — returns all sessions
+
+### CapturedSession Shape
+
+{
+  sourceIde: string,       // "copilot" | "claude" | "cursor" | "kiro" | "windsurf" | "antigravity" | "codex"
+  capturedAt: string,      // ISO 8601 timestamp
+  sessionId?: string,
+  title?: string,
+  workspacePath?: string,
+  messages: ChatMessage[],
+  rawPath?: string,        // absolute path to the source session file
+  readStatus: "success" | "empty" | "not_found" | "error"
+}
+
+### Handoff Prompt Logic
+
+buildPromptFromCapturedSession() selects between two modes:
+- path mode: calls buildPathHandoffPrompt() — outputs rawPath + per-IDE reading guide from IDE_READ_GUIDES. Falls back to fullText if the IDE has no registered guide (e.g. Windsurf binary).
+- fullText mode: calls buildFullTextPrompt() — embeds all parsed messages inline.
+
+Both modes respect edoTensei.promptLanguage (English or Traditional Chinese).
+
+### Default Scan Paths (per OS environment variable / home dir)
+
+- Copilot: %APPDATA%/Code/User/globalStorage/emptyWindowChatSessions/ and workspaceStorage
+- Cursor: os.homedir()/.cursor/projects/
+- Claude: os.homedir()/.claude/projects/
+- Codex: os.homedir()/.codex/
+- Kiro: %APPDATA%/Kiro/User/globalStorage/kiro.kiroagent/
+- Windsurf: os.homedir()/.codeium/windsurf/cascade/
+- Antigravity: os.homedir()/.gemini/antigravity/brain/
+
+---
+## Development
+
+### Build
+
+npm run build        # one-time esbuild bundle → dist/extension.js
+npm run watch        # rebuild on save
+
+### Debug
+
+Press F5 in VS Code to launch Extension Development Host.
+After source changes: npm run build, then Ctrl+R in host window.
+
+### Publishing
+
+npm install -g @vscode/vsce
+npm run build
+vsce package
+vsce publish
+
+---
+## Changelog
+
+### [1.0.0] - Initial Release
+
+- Core Extraction: Standalone VS Code extension for session handoff.
+- Multi-IDE Support: Claude Code CLI, Windsurf, Cursor, Copilot Chat, Kiro, Antigravity, OpenAI Codex.
+- Intelligent Title Generation: Parses chat logs to extract meaningful user intent.
+- Hierarchical View: IDE → Project → Session.
+- Resurrect Session: One-click context formatting for handoff to a new AI agent.
+- Path Handoff Mode: Token-efficient mode outputting file path + per-IDE reading guide.
+- Full-text Handoff Mode: Embeds complete conversation for maximum compatibility.
+- .gitignore Helper: Prompts to exclude .edo_tensei/ from version control.
+- Export to .edo_tensei/: Saves handoff prompts as Markdown files.

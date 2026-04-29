@@ -1,0 +1,239 @@
+{
+  "name": "edo-tensei",
+  "displayName": "%extension.displayName%",
+  "description": "%extension.description%",
+  "version": "1.0.0",
+  "publisher": "Pain-Labs",
+  "icon": "docs/assets/edo_tensei_logo_128.png",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Pain-Labs/Edo-Tensei"
+  },
+  "bugs": {
+    "url": "https://github.com/Pain-Labs/Edo-Tensei/issues"
+  },
+  "homepage": "https://github.com/Pain-Labs/Edo-Tensei#readme",
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "chat",
+    "history",
+    "handoff",
+    "claude",
+    "windsurf",
+    "cursor",
+    "antigravity",
+    "copilot"
+  ],
+  "engines": {
+    "vscode": "^1.79.0"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:sessionHandoffView",
+    "onCommand:edoTensei.scanSessions",
+    "onCommand:edoTensei.fetchAllSessions"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "%config.title%",
+      "properties": {
+        "edoTensei.promptLanguage": {
+          "type": "string",
+          "enum": [
+            "English",
+            "Traditional Chinese",
+            "Simplified Chinese",
+            "Japanese",
+            "Korean"
+          ],
+          "default": "English",
+          "description": "%config.promptLanguage.description%"
+        },
+        "edoTensei.handoffMode": {
+          "type": "string",
+          "enum": [
+            "path",
+            "fullText"
+          ],
+          "enumDescriptions": [
+            "%config.handoffMode.pathDescription%",
+            "%config.handoffMode.fullTextDescription%"
+          ],
+          "default": "path",
+          "description": "%config.handoffMode.description%"
+        },
+        "edoTensei.customScanPaths": {
+          "type": "object",
+          "default": {
+            "claude": [],
+            "windsurf": [],
+            "cursor": [],
+            "copilot": [],
+            "kiro": [],
+            "antigravity": []
+          },
+          "description": "%config.customScanPaths.description%"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "edoTenseiContainer",
+          "title": "%viewContainer.title%",
+          "icon": "$(archive)"
+        }
+      ]
+    },
+    "views": {
+      "edoTenseiContainer": [
+        {
+          "id": "sessionHandoffView",
+          "name": "%view.sessions.name%",
+          "icon": "$(archive)"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "sessionHandoffView",
+        "contents": "%view.welcome%"
+      }
+    ],
+    "commands": [
+      {
+        "command": "edoTensei.resurrectSession",
+        "title": "%command.resurrectSession.title%",
+        "category": "Edo Tensei",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "edoTensei.copyHandoffPrompt",
+        "title": "%command.copyHandoffPrompt.title%",
+        "category": "Edo Tensei",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "edoTensei.openSessionFile",
+        "title": "%command.openSessionFile.title%",
+        "category": "Edo Tensei",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "edoTensei.scanSessions",
+        "title": "%command.scanSessions.title%",
+        "category": "Edo Tensei",
+        "icon": "$(search)"
+      },
+      {
+        "command": "edoTensei.fetchAllSessions",
+        "title": "%command.fetchAllSessions.title%",
+        "category": "Edo Tensei",
+        "icon": "$(history)"
+      },
+      {
+        "command": "edoTensei.exportAllSessions",
+        "title": "%command.exportAllSessions.title%",
+        "category": "Edo Tensei",
+        "icon": "$(save-all)"
+      },
+      {
+        "command": "edoTensei.exportSession",
+        "title": "%command.exportSession.title%",
+        "category": "Edo Tensei",
+        "icon": "$(save)"
+      },
+      {
+        "command": "edoTensei.previewRawSession",
+        "title": "%command.previewRawSession.title%",
+        "category": "Edo Tensei",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "edoTensei.viewParsedSession",
+        "title": "%command.viewParsedSession.title%",
+        "category": "Edo Tensei",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "edoTensei.copyRawPath",
+        "title": "%command.copyRawPath.title%",
+        "category": "Edo Tensei",
+        "icon": "$(link)"
+      },
+      {
+        "command": "edoTensei.openSettings",
+        "title": "%command.openSettings.title%",
+        "category": "Edo Tensei",
+        "icon": "$(settings-gear)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "edoTensei.scanSessions",
+          "when": "view == sessionHandoffView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "edoTensei.fetchAllSessions",
+          "when": "view == sessionHandoffView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "edoTensei.exportAllSessions",
+          "when": "view == sessionHandoffView",
+          "group": "navigation@3"
+        },
+        {
+          "command": "edoTensei.openSettings",
+          "when": "view == sessionHandoffView",
+          "group": "navigation@99"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "edoTensei.viewParsedSession",
+          "when": "view == sessionHandoffView && viewItem == sessionItem",
+          "group": "inline@1"
+        },
+        {
+          "command": "edoTensei.copyRawPath",
+          "when": "view == sessionHandoffView && viewItem == sessionItem",
+          "group": "inline@2"
+        },
+        {
+          "command": "edoTensei.exportSession",
+          "when": "view == sessionHandoffView && viewItem == sessionItem",
+          "group": "inline@3"
+        },
+        {
+          "command": "edoTensei.copyHandoffPrompt",
+          "when": "view == sessionHandoffView && viewItem == sessionItem",
+          "group": "session@1"
+        },
+        {
+          "command": "edoTensei.previewRawSession",
+          "when": "view == sessionHandoffView && viewItem == sessionItem",
+          "group": "session@2"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "esbuild src/extension.ts --bundle --platform=node --target=node18 --format=cjs --outfile=dist/extension.js --external:vscode",
+    "watch": "esbuild src/extension.ts --bundle --platform=node --target=node18 --format=cjs --outfile=dist/extension.js --external:vscode --watch"
+  },
+  "devDependencies": {
+    "@types/node": "^16.x",
+    "@types/vscode": "^1.79.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^4.9.5"
+  }
+}

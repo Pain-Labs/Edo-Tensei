@@ -19,3 +19,5 @@ docs/research/**
 .cursor/rules/scripts/vt.bundle.js
 docs/assets/candidates/**
 .claude/settings.json
+docs/session-handoff/**
+docs/brand/**

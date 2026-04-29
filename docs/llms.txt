@@ -1,0 +1,13 @@
+# Edo Tensei
+> Edo Tensei is a VS Code extension that extracts local AI session histories from multiple IDEs (GitHub Copilot, Cursor, Claude Code CLI, OpenAI Codex, Kiro, Windsurf, Antigravity) and packages them into a ready-to-paste handoff prompt — so the next AI agent can pick up exactly where the last one left off.
+
+It solves the "context fragmentation" problem: when an AI quota or session limit runs out mid-task, switching IDEs normally means losing all conversation history. Edo Tensei makes the handoff one click.
+
+## Documentation
+- [README](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/README.md): Supported IDEs, key features, configuration, and quick start.
+- [Development Guide](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/DEVELOPMENT.md): Setup, project structure, adding new extractors, and publishing.
+- [Changelog](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/CHANGELOG.md): Release history.
+- [Full Context Documentation](https://pain-labs.github.io/Edo-Tensei/llms-full.txt): A single file containing the full text of all critical documentation.
+
+## Optional
+- [License](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/LICENSE): MIT License details.

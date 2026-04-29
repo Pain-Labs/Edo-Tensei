@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- Basic Meta Tags -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <!-- Primary Meta Tags -->
+    <title>Edo Tensei – AI Session Handoff Manager for VS Code</title>
+    <meta name="title" content="Edo Tensei – AI Session Handoff Manager for VS Code">
+    <meta name="description"
+        content="Extract local AI session histories from GitHub Copilot, Cursor, Claude Code, Windsurf, Kiro, and more. One click to hand off context to your next AI agent when your quota runs out.">
+    <meta name="keywords"
+        content="VS Code extension, AI session handoff, context handoff, GitHub Copilot, Cursor, Claude Code, Windsurf, Kiro, Antigravity, Codex, multi-IDE, session manager, AI agent, developer productivity">
+    <meta name="author" content="Pain-Labs">
+    <meta name="robots" content="index, follow">
+    <meta name="language" content="English">
+    <meta name="revisit-after" content="7 days">
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://pain-labs.github.io/Edo-Tensei/">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://pain-labs.github.io/Edo-Tensei/">
+    <meta property="og:title" content="Edo Tensei – AI Session Handoff Manager for VS Code">
+    <meta property="og:description"
+        content="Extract local AI session histories from GitHub Copilot, Cursor, Claude Code, Windsurf, Kiro, and more. One click to hand off context to your next AI agent.">
+    <meta property="og:image" content="https://pain-labs.github.io/Edo-Tensei/assets/edo_tensei_logo_128.png">
+    <meta property="og:site_name" content="Edo Tensei">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary">
+    <meta property="twitter:url" content="https://pain-labs.github.io/Edo-Tensei/">
+    <meta property="twitter:title" content="Edo Tensei – AI Session Handoff Manager for VS Code">
+    <meta property="twitter:description"
+        content="Extract local AI session histories from GitHub Copilot, Cursor, Claude Code, Windsurf, Kiro, and more. One click to hand off context to your next AI agent.">
+    <meta property="twitter:image" content="https://pain-labs.github.io/Edo-Tensei/assets/edo_tensei_logo_128.png">
+
+    <!-- Additional SEO -->
+    <meta name="theme-color" content="#007ACC">
+    <meta name="application-name" content="Edo Tensei">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="128x128" href="assets/edo_tensei_logo_128.png">
+    <link rel="apple-touch-icon" sizes="128x128" href="assets/edo_tensei_logo_128.png">
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Edo Tensei – AI Session Handoff Manager",
+        "description": "Extract local AI session histories from GitHub Copilot, Cursor, Claude Code, Windsurf, Kiro, and more. One click to hand off context to your next AI agent when your quota runs out.",
+        "url": "https://pain-labs.github.io/Edo-Tensei/",
+        "downloadUrl": "https://marketplace.visualstudio.com/items?itemName=Pain-Labs.edo-tensei",
+        "softwareVersion": "1.0.0",
+        "datePublished": "2026-04-29",
+        "author": {
+            "@type": "Organization",
+            "name": "Pain-Labs",
+            "url": "https://github.com/Pain-Labs"
+        },
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "VS Code",
+        "softwareRequirements": "Visual Studio Code ^1.79.0",
+        "keywords": "AI session handoff, multi-IDE context, GitHub Copilot, Cursor, Claude Code, Windsurf, Kiro, Antigravity, Codex, VS Code extension",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD",
+            "availability": "https://schema.org/InStock"
+        },
+        "featureList": [
+            "Extract session histories from 7+ AI coding assistants",
+            "One-click handoff prompt generation",
+            "Token-efficient path mode with per-IDE reading guides",
+            "Full-text mode for maximum compatibility",
+            "Project-scoped session filtering",
+            "Export to local .edo_tensei/ Markdown files",
+            "Completely local-first — no data sent to external servers"
+        ]
+    }
+    </script>
+
+    <!-- LLMs.txt for AI Context -->
+    <link rel="llms-txt" type="text/markdown" href="/Edo-Tensei/llms.txt" />
+
+    <style>
+        :root {
+            --primary: #007acc;
+            --dark: #1e1e1e;
+            --text: #d4d4d4;
+            --bg: #252526;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 60px 20px 50px;
+            border-bottom: 1px solid #333;
+        }
+
+        header img {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+        }
+
+        .hero-img {
+            width: 100%;
+            height: auto;
+            max-width: 860px;
+            border-radius: 8px;
+            margin-top: 32px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: #fff;
+            margin: 0 0 10px;
+        }
+
+        .subtitle {
+            font-size: 1.15rem;
+            color: #9cdcfe;
+            margin-bottom: 30px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .btn {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            font-weight: bold;
+            border-radius: 4px;
+            transition: background 0.2s;
+            font-size: 1rem;
+            margin: 4px;
+        }
+
+        .btn:hover { background: #005f9e; }
+
+        .btn-github { background: #333; }
+        .btn-github:hover { background: #444; }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 24px;
+            padding: 60px 0 20px;
+        }
+
+        .feature-card {
+            background: #333;
+            padding: 24px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+
+        .feature-card h3 {
+            color: #fff;
+            margin-top: 0;
+            font-size: 1.1rem;
+        }
+
+        .ide-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 40px 0;
+            font-size: 0.95rem;
+        }
+
+        .ide-table th, .ide-table td {
+            padding: 10px 14px;
+            text-align: left;
+            border-bottom: 1px solid #3a3a3a;
+        }
+
+        .ide-table th {
+            color: #9cdcfe;
+            font-weight: 600;
+            background: #2d2d2d;
+        }
+
+        .ide-table tr:last-child td { border-bottom: none; }
+
+        .ide-table code {
+            background: #1a1a1a;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: 'Consolas', monospace;
+            color: #ce9178;
+            font-size: 0.85em;
+        }
+
+        .section-title {
+            text-align: center;
+            color: #fff;
+            font-size: 1.8rem;
+            margin: 60px 0 30px;
+        }
+
+        .companion-section {
+            background: #2d2d2d;
+            padding: 50px 0;
+            margin-top: 60px;
+            border-top: 1px solid #444;
+        }
+
+        .companion-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .companion-card {
+            background: #333;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #555;
+        }
+
+        .companion-card h3 { color: #fff; margin-top: 0; }
+        .companion-card p { color: #bbb; font-size: 0.95rem; }
+
+        footer {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 0.9rem;
+            border-top: 1px solid #333;
+        }
+
+        footer a { color: #666; }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="container">
+            <img src="assets/edo_tensei_logo_128.png" alt="Edo Tensei icon" style="width:80px;height:80px;border-radius:12px;">
+            <h1>Edo Tensei</h1>
+            <p class="subtitle">When your AI quota runs out mid-task, switching IDEs shouldn't mean losing your context. One click to hand off to the next agent.</p>
+            <div>
+                <a href="https://marketplace.visualstudio.com/items?itemName=Pain-Labs.edo-tensei" class="btn">⬇ Install Extension</a>
+                <a href="https://github.com/Pain-Labs/Edo-Tensei" class="btn btn-github">View on GitHub</a>
+            </div>
+            <img src="assets/hero_banner.png" alt="Edo Tensei – AI Session Handoff Manager" class="hero-img">
+        </div>
+    </header>
+
+    <div class="container">
+
+        <div class="features">
+            <div class="feature-card">
+                <h3>🔍 Multi-IDE Extraction</h3>
+                <p>Automatically scans local session files from 7+ AI coding assistants — Copilot, Cursor, Claude Code, Windsurf, Kiro, Codex, and Antigravity — all from one sidebar.</p>
+            </div>
+            <div class="feature-card">
+                <h3>⚡ Token-Efficient Handoff</h3>
+                <p>Path mode (default) outputs the session file path + a per-IDE reading guide. The receiving agent reads only what it needs, keeping your new session lean.</p>
+            </div>
+            <div class="feature-card">
+                <h3>📋 One-Click Resurrect</h3>
+                <p>Right-click any session and copy a ready-to-paste handoff prompt. Paste it into any new AI chat — the agent summarizes context and proposes next steps.</p>
+            </div>
+            <div class="feature-card">
+                <h3>🗂️ Project-Scoped View</h3>
+                <p>Scan only sessions matching your current workspace, or pull every historical session across all IDEs. Three-level grouping: IDE → Project → Session.</p>
+            </div>
+            <div class="feature-card">
+                <h3>💾 Export to .edo_tensei/</h3>
+                <p>Save handoff prompts as Markdown files, organized by IDE and project. Automatically prompts to add the folder to <code>.gitignore</code>.</p>
+            </div>
+            <div class="feature-card">
+                <h3>🔒 Local-First Privacy</h3>
+                <p>Everything runs on your machine. No data is sent to any external server. Reads only the local files your installed IDEs already write.</p>
+            </div>
+        </div>
+
+        <h2 class="section-title">Supported IDEs</h2>
+        <table class="ide-table">
+            <thead>
+                <tr>
+                    <th>IDE / Agent</th>
+                    <th>Local Storage</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>GitHub Copilot</td><td><code>%APPDATA%/Code/User/…/chatSessions/</code></td><td>JSON & JSONL</td></tr>
+                <tr><td>Cursor</td><td><code>~/.cursor/projects/</code></td><td>JSONL</td></tr>
+                <tr><td>Claude Code</td><td><code>~/.claude/projects/</code></td><td>JSONL</td></tr>
+                <tr><td>OpenAI Codex</td><td><code>~/.codex/</code></td><td>JSONL</td></tr>
+                <tr><td>Kiro</td><td><code>%APPDATA%/Kiro/…/kiroagent/</code></td><td>JSON (.chat)</td></tr>
+            </tbody>
+        </table>
+
+        <div style="background:#2d2d2d;border:1px solid #555;border-radius:8px;padding:20px 24px;margin:0 0 40px;">
+            <h3 style="color:#f4a942;margin-top:0;">⚠️ Known Limitations</h3>
+            <ul style="margin:0;padding-left:20px;color:#bbb;line-height:1.8;">
+                <li><strong style="color:#d4d4d4;">macOS / Linux</strong>: Not yet supported — Windows only.</li>
+                <li><strong style="color:#d4d4d4;">Trae</strong>: Not yet supported. Local databases use SQLCipher encryption with no public key.</li>
+                <li><strong style="color:#d4d4d4;">Windsurf</strong>: Session files use a binary protobuf format. Full-text mode is unavailable; the extension automatically falls back to path mode (file path + reading guide).</li>
+                <li><strong style="color:#d4d4d4;">Antigravity</strong>: Reads from <code>overview.txt</code> (a preview log). Messages are truncated at ~900 characters per turn. The complete conversation history is stored in Antigravity's cloud and is not accessible locally.</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin: 40px 0;">
+            <h2 style="color: #fff;">Installation</h2>
+            <p>Open VS Code Quick Open (<code>Ctrl+P</code>) and paste:</p>
+            <p><code style="font-size: 1.1rem; padding: 6px 12px;">ext install Pain-Labs.edo-tensei</code></p>
+        </div>
+
+    </div>
+
+    <div class="companion-section">
+        <div class="container">
+            <h2 style="text-align: center; color: #fff; margin-top: 0;">Recommended Companions</h2>
+            <div class="companion-grid">
+                <div class="companion-card">
+                    <h3>🔥 Quick Prompt</h3>
+                    <p>Your in-IDE scratch pad — capture next tasks and reusable snippets while your AI agent is running, without switching windows.</p>
+                    <a href="https://marketplace.visualstudio.com/items?itemName=winterdrive.quick-prompt" class="btn" style="font-size: 0.9rem;">View on Marketplace</a>
+                </div>
+                <div class="companion-card">
+                    <h3>🗂️ VirtualTabs</h3>
+                    <p>Organize files by task across any directory, persisted across sessions. Perfect for keeping AI context curated and focused.</p>
+                    <a href="https://marketplace.visualstudio.com/items?itemName=winterdrive.virtual-tabs" class="btn" style="font-size: 0.9rem;">View on Marketplace</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Created by <a href="https://github.com/Pain-Labs">Pain-Labs</a>. Open Source under MIT License.</p>
+        <p><a href="/Edo-Tensei/llms.txt">[View AI Context]</a></p>
+    </footer>
+
+</body>
+</html>

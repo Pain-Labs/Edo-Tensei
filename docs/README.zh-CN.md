@@ -66,7 +66,7 @@ AI 额度在任务进行到一半时用完，切换到另一款 IDE 不应该意
 
 ![Operation Guide](assets/ui_operation_guide.png)
 
-1. 点击 VS Code 活动栏的 **Edo Tensei** 图标（归档图标）打开侧边栏。
+1. 点击 VS Code 活动栏的 **Edo Tensei** 图标（裂痕文件夹图标）打开侧边栏。
 2. 点击 **Scan (Current Project)** 或 **Scan (All Projects)** 寻找对话记录。
 3. **直接点击某个 session** 即可瞬间将交接 Prompt 复制到剪贴板。
 4. (选用) 右键点击 session 可使用 **进阶功能** (Advanced)，如导出或预览原始文件。

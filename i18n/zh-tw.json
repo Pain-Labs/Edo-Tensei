@@ -15,6 +15,7 @@
     "gitignore.addFailed": "加入 .gitignore 失敗：{0}",
     "scan.projectProgress": "掃描目前專案的 Sessions…",
     "scan.projectEmpty": "此專案找不到任何 AI 對話紀錄。",
+    "scan.projectFound": "✅ 目前專案共找到 {0} 個 sessions",
     "scan.configureCustomPaths": "設定自訂掃描路徑",
     "scan.fetchAll": "掃描所有 Sessions",
     "scan.allProgress": "掃描所有 IDE 的歷史 Sessions…",

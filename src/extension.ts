@@ -354,6 +354,8 @@ export async function activate(context: vscode.ExtensionContext) {
                     } else if (action === I18n.getMessage('scan.fetchAll')) {
                         vscode.commands.executeCommand('edoTensei.fetchAllSessions');
                     }
+                } else {
+                    vscode.window.showInformationMessage(I18n.getMessage('scan.projectFound', String(sessions.length)));
                 }
             } finally {
                 isScanning = false;

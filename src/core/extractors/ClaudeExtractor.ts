@@ -100,14 +100,14 @@ export class ClaudeExtractor implements IChatExtractor {
           if (fileStat.size < 200) continue;
 
           if (lazy) {
-            const firstMsg = await this.prescanFirstUserMessage(filePath);
+            const { message: firstMsg, cwd } = await this.prescanFirstUserMessage(filePath);
             // If no user message found in first 16KB, still include session as Untitled
             const messages: ChatMessage[] = firstMsg ? [firstMsg] : [];
             results.push({
               sourceIde: this.ideId,
               capturedAt: new Date(fileStat.mtimeMs).toISOString(),
               sessionId: path.basename(entry, '.jsonl'),
-              workspacePath: this.slugToWorkspacePath(projectSlug),
+              workspacePath: cwd || this.slugToWorkspacePath(projectSlug),
               messages,
               messagesLoaded: false,
               rawPath: filePath,
@@ -116,13 +116,13 @@ export class ClaudeExtractor implements IChatExtractor {
           } else {
             const raw = await this.safeReadFile(filePath);
             if (!raw) continue;
-            const messages = this.parseClaudeJsonl(raw);
+            const { messages, cwd } = this.parseClaudeJsonlWithMeta(raw);
             if (messages.length === 0) continue;
             results.push({
               sourceIde: this.ideId,
               capturedAt: new Date(fileStat.mtimeMs).toISOString(),
               sessionId: path.basename(entry, '.jsonl'),
-              workspacePath: this.slugToWorkspacePath(projectSlug),
+              workspacePath: cwd || this.slugToWorkspacePath(projectSlug),
               messages,
               messagesLoaded: true,
               rawPath: filePath,
@@ -137,11 +137,14 @@ export class ClaudeExtractor implements IChatExtractor {
   }
 
   /**
-   * Reads the first 16KB of a .jsonl file and returns the first valid user message.
-   * Used during lazy extractAll() to get just enough data for title extraction.
+   * Reads the first 16KB of a .jsonl file, captures the cwd and the first valid user message.
+   * Used during lazy extractAll() for title extraction and reliable workspace path resolution.
+   * Note: slugToWorkspacePath() is ambiguous for hyphenated folder names, so cwd is preferred.
    */
-  private async prescanFirstUserMessage(filePath: string): Promise<ChatMessage | undefined> {
+  private async prescanFirstUserMessage(filePath: string): Promise<{ message: ChatMessage | undefined; cwd: string | undefined }> {
     let fd: fs.FileHandle | undefined;
+    let cwd: string | undefined;
+    let firstMsg: ChatMessage | undefined;
     try {
       fd = await fs.open(filePath, 'r');
       const buffer = Buffer.alloc(16384);
@@ -153,17 +156,24 @@ export class ClaudeExtractor implements IChatExtractor {
         if (!trimmed) continue;
         let obj: ClaudeJsonlRecord;
         try { obj = JSON.parse(trimmed) as ClaudeJsonlRecord; } catch { continue; }
-        if ((obj.type || '').toLowerCase() !== 'user') continue;
 
-        const msg = this.extractMessageFromRecord(obj);
-        if (msg) return msg;
+        if (!cwd && obj.cwd) {
+          cwd = obj.cwd;
+        }
+
+        if (!firstMsg && (obj.type || '').toLowerCase() === 'user') {
+          const msg = this.extractMessageFromRecord(obj);
+          if (msg) firstMsg = msg;
+        }
+
+        if (cwd && firstMsg) break;
       }
     } catch {
       // ignore read errors
     } finally {
       await fd?.close();
     }
-    return undefined;
+    return { message: firstMsg, cwd };
   }
 
   /**
@@ -247,16 +257,22 @@ export class ClaudeExtractor implements IChatExtractor {
   }
 
   private parseClaudeJsonl(raw: string): ChatMessage[] {
+    return this.parseClaudeJsonlWithMeta(raw).messages;
+  }
+
+  private parseClaudeJsonlWithMeta(raw: string): { messages: ChatMessage[]; cwd: string | undefined } {
     const messages: ChatMessage[] = [];
+    let cwd: string | undefined;
     for (const line of raw.split('\n')) {
       const trimmed = line.trim();
       if (!trimmed) continue;
       let obj: ClaudeJsonlRecord | undefined;
       try { obj = JSON.parse(trimmed) as ClaudeJsonlRecord; } catch { continue; }
+      if (!cwd && obj.cwd) cwd = obj.cwd;
       const msg = this.extractMessageFromRecord(obj);
       if (msg) messages.push(msg);
     }
-    return messages;
+    return { messages, cwd };
   }
 
   private isSlugMatchWorkspace(slug: string, workspacePath: string): boolean {

@@ -15,6 +15,7 @@
     "gitignore.addFailed": ".gitignore 추가 실패: {0}",
     "scan.projectProgress": "프로젝트 Sessions를 스캔하는 중…",
     "scan.projectEmpty": "이 프로젝트에서 AI 대화 기록을 찾지 못했습니다.",
+    "scan.projectFound": "✅ 이 프로젝트에서 {0}개의 sessions를 찾았습니다",
     "scan.configureCustomPaths": "커스텀 경로 설정",
     "scan.fetchAll": "전체 Sessions 스캔",
     "scan.allProgress": "모든 IDE의 과거 Sessions를 스캔하는 중…",

@@ -66,7 +66,7 @@ This tool is named after this concept to symbolize "context reincarnation" in AI
 
 ![Operation Guide](./docs/assets/ui_operation_guide.png)
 
-1. Open the **Edo Tensei** view in the VS Code Activity Bar (archive icon).
+1. Open the **Edo Tensei** view in the VS Code Activity Bar (cracked folder icon).
 2. Click **Scan (Current Project)** or **Scan (All Projects)** to find your session history.
 3. **Click a session** to instantly copy the handoff prompt to your clipboard.
 4. (Optional) Right-click a session for **Advanced** options like Export or Preview.

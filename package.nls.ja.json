@@ -1,4 +1,4 @@
-﻿{
+{
     "extension.displayName": "Edo Tensei",
     "extension.description": "複数IDEにまたがるAIセッション履歴をローカルで抽出・復元・管理します。",
     "config.title": "Edo Tensei",
@@ -8,17 +8,21 @@
     "config.handoffMode.fullTextDescription": "会話全文をプロンプトに埋め込みます。どこでも使えますが、より多くのトークンを消費します。",
     "config.customScanPaths.description": "各IDEのセッション履歴を走査するカスタム絶対パス。（例: { \"claude\": [\"D:/custom/.claude\"] }）",
     "viewContainer.title": "Edo Tensei",
-    "view.sessions.name": "Sessions",
-    "view.welcome": "Edo Tensei を使う準備はできましたか？\n\n[すべての履歴セッションを取得](command:edoTensei.fetchAllSessions)",
+    "view.sessions.name": "Edo Tensei",
+    "view.welcome": "Edo Tensei — IDE をまたいで AI Session を引き継ぎ、最初からやり直さずに続けられます。\n\n[スキャン（現在のプロジェクト）](command:edoTensei.scanSessions)\n\n[スキャン（すべてのプロジェクト）](command:edoTensei.fetchAllSessions)\n\n[Agent Skill を生成](command:edoTensei.generateAgentSkill)",
     "command.resurrectSession.title": "Edo Tensei: セッションを復活",
     "command.copyHandoffPrompt.title": "Edo Tensei: 引き継ぎプロンプトをコピー",
     "command.openSessionFile.title": "Edo Tensei: セッションファイルを開く",
     "command.scanSessions.title": "プロジェクトの Sessions をスキャン",
     "command.fetchAllSessions.title": "すべての履歴 Sessions を取得",
-    "command.exportAllSessions.title": ".edo_tensei に全 Sessions をエクスポート",
-    "command.exportSession.title": "Session を .edo_tensei にエクスポート",
+    "command.exportAllSessions.title": "解析済み全 Sessions を .edo_tensei にエクスポート",
+    "command.exportSession.title": "解析済み Session を .edo_tensei にエクスポート",
     "command.previewRawSession.title": "生の Session ファイルをプレビュー",
     "command.viewParsedSession.title": "解析済み Session を表示",
     "command.copyRawPath.title": "生ファイルパスをコピー",
-    "command.openSettings.title": "Edo Tensei: 設定"
+    "command.copyReferencePrompt.title": "Reference Prompt をコピー",
+    "command.copyContextPrompt.title": "Context Prompt をコピー",
+    "command.openSettings.title": "Edo Tensei: 設定",
+    "command.generateAgentSkill.title": "Agent Skill を生成",
+    "config.lazyLoadMessages.description": "遅延読み込みを有効化：スキャン時は最初のメッセージのみ読み取り、ホバー・プレビュー時に全内容を読み込みます。オフにするとデバッグ対照用の即時読み込みモードに戻ります。"
 }

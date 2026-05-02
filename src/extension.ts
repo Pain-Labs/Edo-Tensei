@@ -4,6 +4,7 @@ import { promisify } from 'util';
 import * as path from 'path';
 import { readFile } from 'fs/promises';
 import { SessionHandoffService } from './core/SessionHandoffService';
+import { SkillGenerator } from './core/SkillGenerator';
 import { SessionHandoffProvider, SessionItem } from './ui/SessionHandoffProvider';
 import { I18n } from './i18n';
 
@@ -132,7 +133,8 @@ async function pickGitignoreTargetPath(workspaceRootFsPath: string): Promise<str
         });
     }
 
-    if (gitRootGitignore && path.resolve(gitRootGitignore) !== path.resolve(workspaceGitignore)) {
+    const normPath = (p: string) => process.platform === 'win32' ? path.resolve(p).toLowerCase() : path.resolve(p);
+    if (gitRootGitignore && normPath(gitRootGitignore) !== normPath(workspaceGitignore)) {
         const gitRootExists = await pathExists(vscode.Uri.file(gitRootGitignore));
         if (gitRootExists) {
             options.push({
@@ -187,6 +189,29 @@ async function addEdoTenseiRuleToGitignore(targetPath: string): Promise<'added' 
     const updated = normalized + block;
     await vscode.workspace.fs.writeFile(uri, Buffer.from(updated, 'utf8'));
     return 'added';
+}
+
+async function addSkillRulesToGitignore(targetPath: string, rules: string[]): Promise<void> {
+    const uri = vscode.Uri.file(targetPath);
+    let existing = '';
+    try {
+        const buf = await vscode.workspace.fs.readFile(uri);
+        existing = Buffer.from(buf).toString('utf8');
+    } catch {
+        existing = '';
+    }
+
+    const normalized = existing.replace(/\r\n/g, '\n');
+    const newRules = rules.filter(rule =>
+        !normalized.includes(`\n${rule}\n`) &&
+        !normalized.startsWith(`${rule}\n`) &&
+        !normalized.endsWith(`\n${rule}`)
+    );
+    if (newRules.length === 0) { return; }
+
+    const needsNewline = normalized.length > 0 && !normalized.endsWith('\n');
+    const block = `${needsNewline ? '\n' : ''}# Edo Tensei skills\n${newRules.join('\n')}\n`;
+    await vscode.workspace.fs.writeFile(uri, Buffer.from(normalized + block, 'utf8'));
 }
 
 async function maybePromptAddGitignoreRule(
@@ -275,6 +300,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     const sessionService = new SessionHandoffService(context);
     const sessionHandoffProvider = new SessionHandoffProvider(sessionService);
+    let isScanning = false; // Throttle guard: prevents duplicate scan from rapid button clicks
 
     const workspaceFolder = getPrimaryWorkspaceFolder();
     let createdWatcher: vscode.FileSystemWatcher | undefined;
@@ -305,12 +331,32 @@ export async function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('edoTensei.scanSessions', async () => {
-            const sessions = await vscode.window.withProgress(
-                { location: vscode.ProgressLocation.Window, title: I18n.getMessage('scan.projectProgress'), cancellable: false },
-                () => sessionService.scanProjectSessions()
-            );
-            if (sessions.length === 0) {
-                vscode.window.showInformationMessage(I18n.getMessage('scan.projectEmpty'));
+            if (isScanning) { return; }
+            isScanning = true;
+            try {
+                const sessions = await vscode.window.withProgress(
+                    { location: vscode.ProgressLocation.Window, title: I18n.getMessage('scan.projectProgress'), cancellable: false },
+                    () => sessionService.scanProjectSessions()
+                );
+                if (sessions.length === 0) {
+                    const scanPaths = sessionService.getExpectedScanPaths();
+                    const pathSummary = scanPaths
+                        .map(({ ide, paths }) => `\u2022 ${ide}: ${paths[0]}`)
+                        .join('\n');
+                    const action = await vscode.window.showInformationMessage(
+                        I18n.getMessage('scan.projectEmpty'),
+                        { modal: false, detail: `Scanned paths:\n${pathSummary}\n\nIf your IDE uses a different path, add it via "Configure Custom Scan Paths".` },
+                        I18n.getMessage('scan.configureCustomPaths'),
+                        I18n.getMessage('scan.fetchAll')
+                    );
+                    if (action === I18n.getMessage('scan.configureCustomPaths')) {
+                        vscode.commands.executeCommand('workbench.action.openSettings', 'edoTensei.customScanPaths');
+                    } else if (action === I18n.getMessage('scan.fetchAll')) {
+                        vscode.commands.executeCommand('edoTensei.fetchAllSessions');
+                    }
+                }
+            } finally {
+                isScanning = false;
             }
         })
     );
@@ -353,11 +399,17 @@ export async function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('edoTensei.fetchAllSessions', async () => {
-            const sessions = await vscode.window.withProgress(
-                { location: vscode.ProgressLocation.Window, title: I18n.getMessage('scan.allProgress'), cancellable: false },
-                () => sessionService.scanAllSessions()
-            );
-            vscode.window.showInformationMessage(I18n.getMessage('scan.allFound', String(sessions.length)));
+            if (isScanning) { return; }
+            isScanning = true;
+            try {
+                const sessions = await vscode.window.withProgress(
+                    { location: vscode.ProgressLocation.Window, title: I18n.getMessage('scan.allProgress'), cancellable: false },
+                    () => sessionService.scanAllSessions()
+                );
+                vscode.window.showInformationMessage(I18n.getMessage('scan.allFound', String(sessions.length)));
+            } finally {
+                isScanning = false;
+            }
         })
     );
 
@@ -367,9 +419,11 @@ export async function activate(context: vscode.ExtensionContext) {
                 vscode.window.showWarningMessage(I18n.getMessage('session.notSelected'));
                 return;
             }
+            await sessionService.ensureSessionMessagesLoaded(item.session);
             const prompt = sessionService.buildPromptFromCapturedSession(item.session);
             await vscode.env.clipboard.writeText(prompt);
-            vscode.window.showInformationMessage(I18n.getMessage('session.resurrectedCopied'));
+            const msgKey = sessionService.hasSkillInstalled() ? 'session.copiedSkill' : 'session.copiedFullGuide';
+            vscode.window.showInformationMessage(I18n.getMessage(msgKey));
         })
     );
 
@@ -389,7 +443,8 @@ export async function activate(context: vscode.ExtensionContext) {
             let lastUri: vscode.Uri | undefined;
             for (const s of sessions) {
                 try {
-                    const content = sessionService.buildPromptFromCapturedSession(s);
+                    await sessionService.ensureSessionMessagesLoaded(s);
+                    const content = sessionService.buildExportContent(s);
                     lastUri = await exportSessionToWorkspaceEdoDir(workspaceFolder, s, content);
                     exported++;
                 } catch (err) {
@@ -427,7 +482,8 @@ export async function activate(context: vscode.ExtensionContext) {
             }
 
             try {
-                const content = sessionService.buildPromptFromCapturedSession(item.session);
+                await sessionService.ensureSessionMessagesLoaded(item.session);
+                const content = sessionService.buildExportContent(item.session);
                 const uri = await exportSessionToWorkspaceEdoDir(workspaceFolder, item.session, content);
                 void maybePromptAddGitignoreRule(context, workspaceFolder, 'created');
 
@@ -448,6 +504,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 vscode.window.showWarningMessage(I18n.getMessage('session.notSelected'));
                 return;
             }
+            await sessionService.ensureSessionMessagesLoaded(item.session);
             const content = sessionService.buildReadableTranscript(item.session);
             const doc = await vscode.workspace.openTextDocument({ content, language: 'markdown' });
             await vscode.commands.executeCommand('markdown.showPreview', doc.uri);
@@ -472,6 +529,43 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('edoTensei.generateAgentSkill', async () => {
+            const result = await SkillGenerator.generateSkill();
+            if (result.status !== 'generated') { return; }
+
+            const { skillPaths, projectRoot } = result;
+            const dirNames = [...new Set(skillPaths.map(p =>
+                path.relative(projectRoot, p).split(path.sep)[0]
+            ))];
+            const message = skillPaths.length === 1
+                ? I18n.getMessage('skill.generated', path.relative(projectRoot, skillPaths[0]).replace(/\\/g, '/'))
+                : I18n.getMessage('skill.generatedMultiple', String(skillPaths.length), dirNames.join(', '));
+
+            const addToGitignoreLabel = I18n.getMessage('skill.addToGitignore');
+            const picked = await vscode.window.showInformationMessage(message, addToGitignoreLabel);
+
+            if (picked === addToGitignoreLabel && workspaceFolder) {
+                const targetPath = await pickGitignoreTargetPath(workspaceFolder.uri.fsPath);
+                if (targetPath) {
+                    const rules = skillPaths.map(p => {
+                        const rel = path.relative(projectRoot, p).replace(/\\/g, '/');
+                        return rel.endsWith('SKILL.md') ? rel.substring(0, rel.lastIndexOf('/') + 1) : rel;
+                    });
+                    await addSkillRulesToGitignore(targetPath, rules);
+                    const open = await vscode.window.showInformationMessage(
+                        I18n.getMessage('skill.gitignoreAdded'),
+                        I18n.getMessage('gitignore.openFile')
+                    );
+                    if (open === I18n.getMessage('gitignore.openFile')) {
+                        const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(targetPath));
+                        await vscode.window.showTextDocument(doc);
+                    }
+                }
+            }
+        })
+    );
+
+    context.subscriptions.push(
         vscode.commands.registerCommand('edoTensei.openSessionFile', async (item) => {
             if (item && item.command && item.command.arguments) {
                 const filePath = item.command.arguments[0];
@@ -486,9 +580,31 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('edoTensei.copyHandoffPrompt', async (item: SessionItem) => {
             if (!item?.session) { return; }
+            await sessionService.ensureSessionMessagesLoaded(item.session);
             const prompt = sessionService.buildPromptFromCapturedSession(item.session);
             await vscode.env.clipboard.writeText(prompt);
-            vscode.window.showInformationMessage(I18n.getMessage('session.promptCopied'));
+            const msgKey = sessionService.hasSkillInstalled() ? 'session.copiedSkill' : 'session.copiedFullGuide';
+            vscode.window.showInformationMessage(I18n.getMessage(msgKey));
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('edoTensei.copyReferencePrompt', async (item: SessionItem) => {
+            if (!item?.session) { return; }
+            await sessionService.ensureSessionMessagesLoaded(item.session);
+            const prompt = sessionService.buildReferencePrompt(item.session);
+            await vscode.env.clipboard.writeText(prompt);
+            vscode.window.showInformationMessage(I18n.getMessage('session.copiedReference'));
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('edoTensei.copyContextPrompt', async (item: SessionItem) => {
+            if (!item?.session) { return; }
+            await sessionService.ensureSessionMessagesLoaded(item.session);
+            const prompt = sessionService.buildContextPrompt(item.session);
+            await vscode.env.clipboard.writeText(prompt);
+            vscode.window.showInformationMessage(I18n.getMessage('session.copiedContext'));
         })
     );
 }

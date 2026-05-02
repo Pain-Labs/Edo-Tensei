@@ -40,31 +40,39 @@ export class WindsurfExtractor implements IChatExtractor {
         const files = await fs.readdir(scanDir);
         const pbFiles = files.filter(f => f.endsWith('.pb'));
 
-        for (const f of pbFiles) {
-          const filePath = path.join(scanDir, f);
-          try {
-            const s = await fs.stat(filePath);
-            const buffer = await fs.readFile(filePath);
-            const extractedText = this.extractPrintableStrings(buffer);
+        // Process all .pb files in parallel
+        const fileResults = await Promise.all(
+          pbFiles.map(async (f): Promise<CapturedSession | undefined> => {
+            const filePath = path.join(scanDir, f);
+            try {
+              const s = await fs.stat(filePath);
+              const buffer = await fs.readFile(filePath);
+              const extractedText = this.extractPrintableStrings(buffer);
 
-            const messages: ChatMessage[] = [];
-            for (const text of extractedText) {
-              if (text.length > 30) {
-                messages.push({ role: 'assistant', content: text.trim() });
+              const messages: ChatMessage[] = [];
+              for (const text of extractedText) {
+                if (text.length > 30) {
+                  messages.push({ role: 'assistant', content: text.trim() });
+                }
               }
-            }
 
-            if (messages.length > 0) {
-              results.push({
-                sourceIde: this.ideId,
-                capturedAt: new Date(s.mtimeMs).toISOString(),
-                sessionId: f.replace('.pb', ''),
-                messages,
-                rawPath: filePath,
-                readStatus: 'success',
-              });
-            }
-          } catch { /* skip */ }
+              if (messages.length > 0) {
+                return {
+                  sourceIde: this.ideId,
+                  capturedAt: new Date(s.mtimeMs).toISOString(),
+                  sessionId: f.replace('.pb', ''),
+                  messages,
+                  rawPath: filePath,
+                  readStatus: 'success',
+                };
+              }
+            } catch { /* skip */ }
+            return undefined;
+          })
+        );
+
+        for (const session of fileResults) {
+          if (session) results.push(session);
         }
       } catch {
         continue;

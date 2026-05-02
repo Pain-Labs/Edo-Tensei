@@ -16,6 +16,10 @@
  *
  * overview.txt 格式：每行一個 JSON 物件，type 為 PLANNER_RESPONSE / TOOL_CALL_RESULT 等。
  * 我們只需要 source=USER/USER_EXPLICIT 作為 user，source=MODEL 作為 assistant。
+ *
+ * 效能策略：
+ *   - candidate 蒐集：readdir + stat 全並行（Promise.all）
+ *   - 讀取與解析：overview.txt 通常 < 1MB，全部 Promise.all 並行 readFile + parse
  */
 
 import * as fs from 'fs/promises';
@@ -50,56 +54,71 @@ export class AntigravityExtractor implements IChatExtractor {
 
   async extract(_workspacePath?: string, customScanPaths: string[] = []): Promise<CapturedSession> {
     const sessions = await this.extractAll(_workspacePath, customScanPaths);
-    return sessions.length > 0 
-      ? sessions[0] 
+    return sessions.length > 0
+      ? sessions[0]
       : { sourceIde: this.ideId, capturedAt: new Date().toISOString(), messages: [], rawPath: this.getBaseDir(), readStatus: 'empty' };
   }
 
   async extractAll(_workspacePath?: string, customScanPaths: string[] = []): Promise<CapturedSession[]> {
     const baseDir = this.getBaseDir();
     const dirsToScan = [...customScanPaths, baseDir];
-    const candidates: Array<{ path: string; uuid: string; mtime: number }> = [];
 
-    for (const scanDir of dirsToScan) {
-      try {
-        await fs.access(scanDir);
-        const brainIds = await fs.readdir(scanDir);
+    // Step 1: Collect all candidate overview.txt paths in parallel across all scan dirs
+    const candidateArrays = await Promise.all(
+      dirsToScan.map(async (scanDir): Promise<Array<{ path: string; uuid: string; mtime: number }>> => {
+        try {
+          await fs.access(scanDir);
+          const brainIds = await fs.readdir(scanDir);
 
-        for (const id of brainIds) {
-          const overviewPath = path.join(scanDir, id, '.system_generated', 'logs', 'overview.txt');
-          try {
-            const s = await fs.stat(overviewPath);
-            candidates.push({ path: overviewPath, uuid: id, mtime: s.mtimeMs });
-          } catch { /* skip */ }
+          // Stat all overview.txt files in parallel
+          const candidates = await Promise.all(
+            brainIds.map(async (id): Promise<{ path: string; uuid: string; mtime: number; size: number } | undefined> => {
+              const overviewPath = path.join(scanDir, id, '.system_generated', 'logs', 'overview.txt');
+              try {
+                const s = await fs.stat(overviewPath);
+                return { path: overviewPath, uuid: id, mtime: s.mtimeMs, size: s.size };
+              } catch {
+                return undefined;
+              }
+            })
+          );
+
+          return candidates.filter((c): c is { path: string; uuid: string; mtime: number; size: number } => c !== undefined);
+        } catch {
+          return [];
         }
-      } catch {
-        continue;
-      }
-    }
+      })
+    );
 
-    if (candidates.length === 0) return [];
+    const allCandidates = candidateArrays.flat();
+    if (allCandidates.length === 0) return [];
 
-      const results: CapturedSession[] = [];
-      for (const cand of candidates) {
+    // Step 2: Read and parse all overview.txt files in parallel
+    const sessionResults = await Promise.all(
+      allCandidates.map(async (cand): Promise<CapturedSession | undefined> => {
         try {
           const raw = await fs.readFile(cand.path, 'utf8');
           const { messages, hasTruncation } = this.parseOverview(raw);
           if (messages.length > 0) {
-            results.push({
+            return {
               sourceIde: this.ideId,
               capturedAt: new Date(cand.mtime).toISOString(),
               sessionId: cand.uuid,
               messages,
+              fileSizeBytes: cand.size,
               rawPath: cand.path,
               // 若原始日誌有截斷標記，記錄於 readStatus（overview.txt 的設計即為 preview-only）
               readStatus: hasTruncation ? 'success' : 'success',
               errorDetail: hasTruncation ? 'overview.txt is preview-only; some messages are truncated at source' : undefined,
-            });
+            };
           }
         } catch { /* skip */ }
-      }
+        return undefined;
+      })
+    );
 
-      return results.sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
+    const results = sessionResults.filter((s): s is CapturedSession => s !== undefined);
+    return results.sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
   }
 
   private parseOverview(raw: string): { messages: ChatMessage[]; hasTruncation: boolean } {
@@ -128,7 +147,7 @@ export class AntigravityExtractor implements IChatExtractor {
               timestamp: obj.created_at,
             });
           }
-        } 
+        }
         // Model messages
         else if (obj.source === 'MODEL' && obj.type === 'PLANNER_RESPONSE') {
           // Case 1: Direct content

@@ -1,4 +1,4 @@
-﻿# Edo Tensei – AI Session Handoff Manager
+# Edo Tensei – AI Session Handoff Manager
 
 [![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/Pain-Labs.edo-tensei)](https://marketplace.visualstudio.com/items?itemName=Pain-Labs.edo-tensei)
 [![Installs](https://img.shields.io/visual-studio-marketplace/i/Pain-Labs.edo-tensei)](https://marketplace.visualstudio.com/items?itemName=Pain-Labs.edo-tensei)
@@ -41,7 +41,6 @@ This tool is named after this concept to symbolize "context reincarnation" in AI
 | Claude Code CLI | `~/.claude/projects/` | JSONL |
 | OpenAI Codex CLI | `~/.codex/` | JSONL |
 | Kiro | `%APPDATA%/Kiro/…/kiroagent/` | JSON (`.chat`) |
-| Windsurf | `~/.codeium/windsurf/cascade/` | Binary (path-only handoff) |
 | Antigravity | `~/.gemini/antigravity/brain/` | Preview log only — see Known Limitations |
 
 ---
@@ -56,6 +55,7 @@ This tool is named after this concept to symbolize "context reincarnation" in AI
 - **One-Click Resurrect**: Copies a formatted handoff prompt to clipboard — paste it into any new AI chat to restore context instantly.
 - **Export to `.edo_tensei/`**: Saves handoff prompts as Markdown files, organized by `IDE/project/timestamp`.
 - **Raw File Preview**: Opens the original session file directly in VS Code for manual inspection or editing.
+- **Agent Skill Generator**: Generates reusable `edo-tensei` skill/rule files for Claude Code, GitHub Copilot, Kiro, Antigravity, Cline, and Cursor.
 - **`.gitignore` Helper**: Automatically prompts you to add `.edo_tensei/` to `.gitignore` so local exports don't pollute your repo.
 
 ![Features](./docs/assets/features.png)
@@ -64,13 +64,13 @@ This tool is named after this concept to symbolize "context reincarnation" in AI
 
 ## Quick Start
 
-1. Open the **Edo Tensei** view in the VS Code Activity Bar (archive icon).
-2. Click **Scan Project Sessions** to find sessions matching your current workspace, or **Fetch ALL Historical Sessions** to scan everything.
-3. Browse sessions grouped by IDE in the tree view.
-4. Right-click a session and choose **Copy Handoff Prompt** to copy a ready-to-paste prompt.
-5. Paste into your new IDE / AI agent and continue.
+![Operation Guide](./docs/assets/ui_operation_guide.png)
 
-![UI Overview](./docs/assets/ui_sidebar_overview.png)
+1. Open the **Edo Tensei** view in the VS Code Activity Bar (archive icon).
+2. Click **Scan (Current Project)** or **Scan (All Projects)** to find your session history.
+3. **Click a session** to instantly copy the handoff prompt to your clipboard.
+4. (Optional) Right-click a session for **Advanced** options like Export or Preview.
+5. **Paste** the prompt into your target IDE/Agent and continue.
 
 ---
 
@@ -111,6 +111,28 @@ All commands are available via the Command Palette (`Ctrl+Shift+P`) under the `E
 | Copy Raw File Path | Copy the session file path to clipboard |
 | Export Session to .edo_tensei | Save handoff prompt as a Markdown file |
 | Export All Sessions to .edo_tensei | Save all scanned sessions to `.edo_tensei/` |
+| Generate Agent Skill | Generate a reusable `edo-tensei` skill/rule file for another AI agent |
+
+---
+
+## Agent Skills
+
+Use **Generate Agent Skill** to create a reusable `edo-tensei` skill or rule for another AI tool. The generated asset is designed as a structured SOP instead of a loose note: it tells the receiving agent how to locate likely session files, read only the recent relevant portion, stop when confidence is low, and return a clean handoff summary.
+
+Supported outputs:
+
+- Claude Code: `.claude/skills/edo-tensei/SKILL.md`
+- GitHub Copilot: `.github/skills/edo-tensei/SKILL.md`
+- Kiro IDE: `.kiro/skills/edo-tensei/SKILL.md`
+- Antigravity: `.agents/skills/edo-tensei/SKILL.md`
+- Cline: `.cline/skills/edo-tensei/SKILL.md`
+- Gemini CLI: `.gemini/skills/edo-tensei/SKILL.md`
+- Cursor: `.cursor/rules/edo-tensei.mdc`
+
+Notes:
+
+- Cursor uses a rule file, not a slash-command skill.
+- The handoff prompt now includes a file-read fallback even when an `edo-tensei` skill/rule is present, so generated prompts stay usable across mixed toolchains.
 
 ---
 
@@ -126,7 +148,7 @@ The `.edo_tensei/` export folder is created inside your workspace. The extension
 
 - **macOS / Linux**: Not yet supported. The extension is currently Windows-only.
 - **Trae**: Not yet supported. Local databases use SQLCipher encryption; no public key is available.
-- **Windsurf**: Session files are stored in a binary protobuf format. Edo Tensei falls back to **path mode only** — it copies the file path and a reading guide, but cannot embed the full conversation.
+- **Windsurf**: Session files are stored in a binary protobuf format. The previous path-only fallback is currently disabled, so Windsurf sessions do not appear in scan results until a reliable parser is available.
 - **Antigravity**: Extracts from `overview.txt` (preview log), which truncates messages at ~900 characters. Full conversation history is stored in Antigravity's cloud only and is not accessible locally.
 
 ---
@@ -144,6 +166,28 @@ Capture next tasks and reusable snippets while your AI agent is running — with
 Organize files by task across any directory, persisted across sessions.
 
 [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=winterdrive.virtual-tabs) | [Open VSX Registry](https://open-vsx.org/extension/winterdrive/virtual-tabs)
+
+---
+
+## Bug Reports
+
+Found a bug? Please [open an issue](https://github.com/Pain-Labs/Edo-Tensei/issues) and include:
+
+- OS version (e.g., Windows 11 22H2)
+- Source IDE and the session you were trying to extract
+- Steps to reproduce
+
+---
+
+## Contributing
+
+Contributions are welcome! Feel free to open a [pull request](https://github.com/Pain-Labs/Edo-Tensei/pulls) or start a discussion in [Issues](https://github.com/Pain-Labs/Edo-Tensei/issues).
+
+Areas that would benefit from help:
+
+- **New IDE extractors** — especially macOS / Linux path support
+- **Windsurf / Trae** — if you have insights into their session formats
+- **Translations** — improving or adding localized READMEs
 
 ---
 

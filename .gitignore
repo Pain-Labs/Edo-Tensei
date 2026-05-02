@@ -21,3 +21,11 @@ docs/assets/candidates/**
 .claude/settings.json
 docs/session-handoff/**
 docs/brand/**
+.agents/**
+.claude/**
+.cline/**
+.cursor/**
+.github/**
+docs/alternatives/**
+scripts/**
+docs/roadmap/**

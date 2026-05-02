@@ -89,6 +89,7 @@ export class CodexExtractor implements IChatExtractor {
             title: parsed.title,
             workspacePath: parsed.cwd,
             messages: parsed.messages,
+            fileSizeBytes: st.size,
             rawPath: filePath,
             readStatus: 'success',
           } satisfies CapturedSession;
@@ -151,6 +152,23 @@ export class CodexExtractor implements IChatExtractor {
 
         if (!text) continue;
 
+        // IDE context messages embed user input under "## My request for Codex:"
+        // Extract only that section; skip the message entirely if no request is present.
+        if (role === 'user' && text.trimStart().startsWith('# Context from my IDE setup:')) {
+          const marker = '## My request for Codex:';
+          const idx = text.indexOf(marker);
+          if (idx !== -1) {
+            const requestText = text.slice(idx + marker.length).trim();
+            if (requestText) {
+              messages.push({ role: 'user', content: requestText, timestamp: obj.timestamp });
+            }
+          }
+          continue;
+        }
+
+        // Skip Codex-injected system messages (permissions, collaboration mode, skills, env context, AGENTS.md)
+        if (this.isCodexInjectedMessage(role, text)) continue;
+
         // Map developer/system to system to reduce noise in the tree view (still kept in transcript).
         const mappedRole: ChatMessage['role'] = role === 'user' ? 'user' : role === 'assistant' ? 'assistant' : 'system';
         messages.push({ role: mappedRole, content: text, timestamp: obj.timestamp });
@@ -160,32 +178,77 @@ export class CodexExtractor implements IChatExtractor {
     return { messages, cwd, sessionId };
   }
 
-  private async findRolloutFiles(root: string): Promise<string[]> {
-    const results: string[] = [];
+  /**
+   * Codex 會把以下內容注入為 user/system message，這些不是真正的使用者輸入：
+   *   - <permissions instructions>...</permissions instructions>  （沙盒規則）
+   *   - <collaboration_mode>...</collaboration_mode>             （Plan/Default mode 設定）
+   *   - <skills_instructions>...</skills_instructions>           （Skill 清單注入）
+   *   - <environment_context>...</environment_context>           （cwd/shell/date 等）
+   *   - # AGENTS.md instructions for ...                        （AGENTS.md 全文注入）
+   * 若訊息**幾乎只有**這些 XML 標籤，則視為注入訊息，不納入對話歷史。
+   */
+  private isCodexInjectedMessage(role: string, text: string): boolean {
+    // developer/system role 全部都是 Codex 系統注入，直接過濾
+    if (role === 'developer' || role === 'system') return true;
 
-    const walk = async (dir: string, depth: number) => {
-      if (depth > 5) return;
+    const stripped = text.trimStart();
+
+    // 以下訊息永遠是純注入（不含使用者輸入），直接過濾
+    if (stripped.startsWith('<turn_aborted>')) return true;
+
+    // user role：檢查是否以 Codex 注入的標籤開頭（且使用者真正輸入的文字極少）
+    const INJECTED_PREFIXES = [
+      '<permissions instructions>',
+      '<collaboration_mode>',
+      '<skills_instructions>',
+      '<environment_context>',
+      '# AGENTS.md instructions for',
+    ];
+
+    if (INJECTED_PREFIXES.some(p => stripped.startsWith(p))) {
+      // 若整段文字都在標籤區塊裡，確認沒有夾雜真正的使用者輸入
+      // 策略：去除所有 <tag>...</tag> 區塊及 <tag> 殘留後，剩餘文字 < 50 字元則視為純注入
+      const withoutTags = text
+        .replace(/<[a-z_]+>[\s\S]*?<\/[a-z_]+>/gi, '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/^#+\s+AGENTS\.md[^\n]*/gm, '') // AGENTS.md 標題行
+        .trim();
+      return withoutTags.length < 50;
+    }
+
+    return false;
+  }
+
+  private async findRolloutFiles(root: string): Promise<string[]> {
+    const walk = async (dir: string, depth: number): Promise<string[]> => {
+      if (depth > 5) return [];
       let entries: import('fs').Dirent[];
       try {
         entries = await fs.readdir(dir, { withFileTypes: true });
       } catch {
-        return;
+        return [];
       }
 
-      for (const e of entries) {
-        const full = path.join(dir, e.name);
-        if (e.isDirectory()) {
-          await walk(full, depth + 1);
-        } else if (e.isFile()) {
-          if (e.name.toLowerCase().startsWith('rollout-') && e.name.toLowerCase().endsWith('.jsonl')) {
-            results.push(full);
+      // Process all entries in parallel
+      const childResults = await Promise.all(
+        entries.map(async (e): Promise<string[]> => {
+          const full = path.join(dir, e.name);
+          if (e.isDirectory()) {
+            return walk(full, depth + 1);
+          } else if (e.isFile()) {
+            const lower = e.name.toLowerCase();
+            if (lower.startsWith('rollout-') && lower.endsWith('.jsonl')) {
+              return [full];
+            }
           }
-        }
-      }
+          return [];
+        })
+      );
+
+      return childResults.flat();
     };
 
-    await walk(root, 0);
-    return results;
+    return walk(root, 0);
   }
 
   private normalizePath(p: string): string {

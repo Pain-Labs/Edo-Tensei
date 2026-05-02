@@ -19,6 +19,9 @@ export interface CapturedSession {
   title?: string;
   workspacePath?: string;
   messages: ChatMessage[];
+  messagesLoaded?: boolean; // If true, the session has been fully loaded (for lazy loading)
+  fileSizeBytes?: number;   // Raw file size in bytes — used for token estimation without loading messages
+  metadata?: Record<string, any>; // Extractor-specific metadata (e.g. executionIds)
   rawPath: string; // source file path (for debugging)
   readStatus: 'success' | 'empty' | 'encrypted' | 'not_found' | 'unknown_format' | 'error';
   errorDetail?: string;
@@ -40,4 +43,10 @@ export interface IChatExtractor {
    * @param customScanPaths - 自訂掃描路徑清單
    */
   extractAll(workspacePath?: string, customScanPaths?: string[]): Promise<CapturedSession[]>;
+
+  /** 
+   * (Optional) 延遲載入完整對話內容。
+   * 某些 IDE (如 Kiro) 的對話圖形十分龐大，Scan Project 時僅載入摘要，需要時才呼叫此方法展開。
+   */
+  loadFullMessages?(session: CapturedSession): Promise<void>;
 }

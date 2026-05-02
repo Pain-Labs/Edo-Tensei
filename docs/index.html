@@ -57,8 +57,8 @@
         "description": "Extract local AI session histories from GitHub Copilot, Cursor, Claude Code, Windsurf, Kiro, and more. One click to hand off context to your next AI agent when your quota runs out.",
         "url": "https://pain-labs.github.io/Edo-Tensei/",
         "downloadUrl": "https://marketplace.visualstudio.com/items?itemName=Pain-Labs.edo-tensei",
-        "softwareVersion": "1.0.0",
-        "datePublished": "2026-04-29",
+        "softwareVersion": "1.0.1",
+        "datePublished": "2026-05-02",
         "author": {
             "@type": "Organization",
             "name": "Pain-Labs",
@@ -76,10 +76,11 @@
         },
         "featureList": [
             "Extract session histories from 7+ AI coding assistants",
-            "One-click handoff prompt generation",
+            "One-click handoff prompt generation (click to copy)",
             "Token-efficient path mode with per-IDE reading guides",
             "Full-text mode for maximum compatibility",
             "Project-scoped session filtering",
+            "Agent Skill Generator for Claude Code, Kiro, Cursor, etc.",
             "Export to local .edo_tensei/ Markdown files",
             "Completely local-first — no data sent to external servers"
         ]
@@ -290,11 +291,15 @@
             </div>
             <div class="feature-card">
                 <h3>📋 One-Click Resurrect</h3>
-                <p>Right-click any session and copy a ready-to-paste handoff prompt. Paste it into any new AI chat — the agent summarizes context and proposes next steps.</p>
+                <p>Click any session to instantly copy a ready-to-paste handoff prompt. Right-click for more options like Export, Preview, or path-only Reference prompts.</p>
             </div>
             <div class="feature-card">
                 <h3>🗂️ Project-Scoped View</h3>
                 <p>Scan only sessions matching your current workspace, or pull every historical session across all IDEs. Three-level grouping: IDE → Project → Session.</p>
+            </div>
+            <div class="feature-card">
+                <h3>📜 Agent Skill Generator</h3>
+                <p>Generate structured <code>edo-tensei</code> skill/rule files (SOPs) for Claude Code, GitHub Copilot, Kiro, Antigravity, Cline, Gemini CLI, and Cursor.</p>
             </div>
             <div class="feature-card">
                 <h3>💾 Export to .edo_tensei/</h3>
@@ -329,7 +334,7 @@
             <ul style="margin:0;padding-left:20px;color:#bbb;line-height:1.8;">
                 <li><strong style="color:#d4d4d4;">macOS / Linux</strong>: Not yet supported — Windows only.</li>
                 <li><strong style="color:#d4d4d4;">Trae</strong>: Not yet supported. Local databases use SQLCipher encryption with no public key.</li>
-                <li><strong style="color:#d4d4d4;">Windsurf</strong>: Session files use a binary protobuf format. Full-text mode is unavailable; the extension automatically falls back to path mode (file path + reading guide).</li>
+                <li><strong style="color:#d4d4d4;">Windsurf</strong>: Currently disabled. Session files use a binary protobuf format; reliable local parsing is pending.</li>
                 <li><strong style="color:#d4d4d4;">Antigravity</strong>: Reads from <code>overview.txt</code> (a preview log). Messages are truncated at ~900 characters per turn. The complete conversation history is stored in Antigravity's cloud and is not accessible locally.</li>
             </ul>
         </div>

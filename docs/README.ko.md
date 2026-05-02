@@ -66,7 +66,7 @@
 
 ![Operation Guide](assets/ui_operation_guide.png)
 
-1. VS Code 액티비티 바의 **Edo Tensei** 뷰(아카이브 아이콘)를 엽니다.
+1. VS Code 액티비티 바의 **Edo Tensei** 뷰(균열된 폴더 아이콘)를 엽니다.
 2. **Scan (Current Project)** 또는 **Scan (All Projects)**를 클릭하여 대화 기록을 검색합니다.
 3. **세션을 직접 클릭**하면 핸드오프 프롬프트가 즉시 클립보드에 복사됩니다.
 4. (선택 사항) 세션을 우클릭하면 내보내기나 미리보기와 같은 **고급 기능** (Advanced)을 사용할 수 있습니다.

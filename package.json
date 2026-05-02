@@ -92,7 +92,7 @@
         {
           "id": "edoTenseiContainer",
           "title": "%viewContainer.title%",
-          "icon": "$(archive)"
+          "icon": "docs/assets/edo_tensei_sidebar.svg"
         }
       ]
     },
@@ -101,7 +101,7 @@
         {
           "id": "sessionHandoffView",
           "name": "%view.sessions.name%",
-          "icon": "$(archive)"
+          "icon": "docs/assets/edo_tensei_sidebar.svg"
         }
       ]
     },

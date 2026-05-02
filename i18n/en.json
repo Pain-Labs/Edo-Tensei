@@ -15,6 +15,7 @@
     "gitignore.addFailed": "Failed to add to .gitignore: {0}",
     "scan.projectProgress": "Scanning project sessions…",
     "scan.projectEmpty": "No AI conversation history found in this project.",
+    "scan.projectFound": "✅ Currently found {0} sessions in this project",
     "scan.configureCustomPaths": "Configure Custom Paths",
     "scan.fetchAll": "Scan All Sessions",
     "scan.allProgress": "Scanning all IDE historical sessions…",

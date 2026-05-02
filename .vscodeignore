@@ -14,6 +14,7 @@ package-lock.json
 .cursor/
 .github/
 .agent/
+.edo_tensei/
 
 # Build artifacts
 *.vsix
@@ -27,6 +28,10 @@ docs/llms*.txt
 docs/BRANDING_INVENTORY.md
 docs/LOGO_CONCEPTS_MANGA.md
 docs/LOGO_CONCEPTS_TECH.md
+docs/alternatives/
+docs/brand/
+docs/roadmap/
+scripts/
 
 # Logo candidates (design drafts, not needed at runtime)
 docs/assets/candidates/

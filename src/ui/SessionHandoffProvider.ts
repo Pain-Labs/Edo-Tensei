@@ -4,6 +4,12 @@ import { SessionHandoffService } from '../core/SessionHandoffService';
 import { CapturedSession } from '../core/extractors/types';
 import { I18n } from '../i18n';
 
+function isLazyLoadEnabled(): boolean {
+    try {
+        return vscode.workspace.getConfiguration('edoTensei').get<boolean>('lazyLoadMessages', true);
+    } catch { return true; }
+}
+
 /** 估算訊息列表的 token 數（字元數 ÷ 3.5，適用中英混合內容），超過 1000 用 k 縮寫 */
 function estimateTokenLabel(messages: import('../core/extractors/types').ChatMessage[]): string {
     let charCount = 0;
@@ -15,12 +21,23 @@ function estimateTokenLabel(messages: import('../core/extractors/types').ChatMes
     return tokens >= 1000 ? `~${(tokens / 1000).toFixed(1)}k` : `~${tokens}`;
 }
 
+/**
+ * 從檔案大小估算 token 數。
+ * 對 JSONL/JSON 格式：JSON overhead 約佔 40%，有效文字壓縮比約 0.6，再除以 3.5 char/token。
+ * 等效換算：bytes * 0.6 / 3.5 ≈ bytes / 5.8
+ * 對比實測誤差在 50% 以內，足以作 tooltip hint 使用。
+ */
+function estimateTokenLabelFromSize(fileSizeBytes: number): string {
+    const tokens = Math.round(fileSizeBytes / 5.8);
+    return tokens >= 1000 ? `~${(tokens / 1000).toFixed(1)}k` : `~${tokens}`;
+}
+
 /** 從 session 取得 project 名稱，若無則回傳 undefined */
 function resolveProjectName(session: CapturedSession): string | undefined {
     if (session.workspacePath) {
         let name = path.basename(session.workspacePath);
         
-        // Cursor 專案名稱清理 (例如: c-Users-username-IdeaProjects-MyProject -> MyProject)
+        // Cursor 專案名稱清理 (例如: c-Users-username-Projects-MyProject -> MyProject)
         if (session.sourceIde === 'cursor' && name.includes('-')) {
             const parts = name.split('-');
             name = parts[parts.length - 1];
@@ -102,20 +119,44 @@ export class SessionItem extends vscode.TreeItem {
             this.description = timeLabel;
         }
 
-        const tokenLabel = estimateTokenLabel(session.messages);
-        this.tooltip = [
-            `Source: ${session.sourceIde}`,
-            `Project: ${session.workspacePath || 'Unknown'}`,
-            `Last Edit: ${date.toLocaleString()}`,
-            `Messages: ${session.messages.length}  •  ${tokenLabel} tokens (est.)`,
-            `Path: ${session.rawPath}`
-        ].join('\n');
+        const projectName = showProject ? resolveProjectName(session) : (session.workspacePath ? path.basename(session.workspacePath) : 'Unknown Workspace');
+        const truncatedTitle = displayTitle.length > 50 ? displayTitle.substring(0, 50) + '...' : displayTitle;
+
+        if (isLazyLoadEnabled() && session.messagesLoaded === false) {
+            // Lazy mode: 優先用檔案大小估算 token，無需 hover
+            const tokenLabel = session.fileSizeBytes
+                ? estimateTokenLabelFromSize(session.fileSizeBytes)
+                : '—';
+            const msgCount = session.messages.length > 0
+                ? `${session.messages.length}+`
+                : '—';
+                
+            this.tooltip = [
+                `📁 ${projectName || session.sourceIde}`,
+                `🕒 ${date.toLocaleString()}`,
+                `📝 ${truncatedTitle}`,
+                `💬 ${msgCount} messages`,
+                `⚡ ${tokenLabel} tokens (est.)`,
+                `${session.rawPath}`
+            ].join('\n');
+        } else {
+            const tokenLabel = estimateTokenLabel(session.messages);
+            this.tooltip = [
+                `📁 ${projectName || session.sourceIde}`,
+                `🕒 ${date.toLocaleString()}`,
+                `📝 ${truncatedTitle}`,
+                `💬 ${session.messages.length} messages`,
+                `⚡ ${tokenLabel} tokens (est.)`,
+                `${session.rawPath}`
+            ].join('\n');
+        }
         this.iconPath = new vscode.ThemeIcon('comment-discussion');
         this.contextValue = 'sessionItem';
 
+        // 預設點擊行為：查看已解析 Session（Markdown 預覽）
         this.command = {
-            command: 'edoTensei.resurrectSession',
-            title: 'Resurrect Session',
+            command: 'edoTensei.viewParsedSession',
+            title: 'View Parsed Session',
             arguments: [this]
         };
     }
@@ -137,18 +178,73 @@ export class SessionHandoffProvider implements vscode.TreeDataProvider<vscode.Tr
      * 且有實質內容的行（超過 5 個字元，且不是明顯的系統路徑格式）。
      */
     static extractMeaningfulTitle(messages: import('../core/extractors/types').ChatMessage[]): string {
+        const normalizeTitle = (line: string): string | undefined => {
+            const trimmed = line.trim().replace(/^[-*#\s]+/, '').trim();
+            if (!trimmed) return undefined;
+            const title = trimmed.substring(0, 45);
+            return trimmed.length > 45 ? title + '...' : title;
+        };
+
+        const extractContextTransferTitle = (content: string): string | undefined => {
+            if (!/^CONTEXT TRANSFER:/i.test(content.trimStart())) return undefined;
+
+            const matches = [...content.matchAll(/##\s*TASK\s+\d+\s*:\s*(.+?)\s*\n[\s\S]*?\*\*STATUS\*\*:\s*([^\n]+)/gi)];
+            if (matches.length === 0) return undefined;
+
+            const preferred = matches.find((m) => /in-progress/i.test(m[2])) ?? matches[0];
+            return normalizeTitle(preferred[1]);
+        };
+
+        const stripKnownKiroWrappers = (content: string): string => {
+            return content
+                .replace(/^#\s*System Prompt\s*/i, '')
+                .replace(/^##\s*Included Rules[\s\S]*?<\/user-rule>\s*/i, '')
+                .replace(/\s*<EnvironmentContext>[\s\S]*?<\/EnvironmentContext>\s*$/i, '')
+                .replace(/\s*<OPEN-EDITOR-FILES>[\s\S]*?<\/OPEN-EDITOR-FILES>\s*/gi, '')
+                .replace(/\s*<ACTIVE-EDITOR-FILE>[\s\S]*?<\/ACTIVE-EDITOR-FILE>\s*/gi, '')
+                .trim();
+        };
+
         // 過濾器：判斷一行是否「有意義」（不是路徑、不是純符號、長度合適）
         const isPathLike = (line: string) =>
             /^([a-zA-Z]:[/\\]|\/[a-z])/i.test(line) ||  // Windows/Unix 絕對路徑
             /^[0-9a-f]{8,}$/i.test(line);               // 雜湊字串
 
+        const isBoilerplateLine = (line: string) =>
+            /^CONTEXT TRANSFER:/i.test(line) ||
+            /^##\s*Included Rules\b/i.test(line) ||
+            /^#\s*System Prompt\b/i.test(line) ||
+            /^\*\*STATUS\*\*:/i.test(line) ||
+            /^\*\*USER QUERIES\*\*:/i.test(line) ||
+            /^\*\*DETAILS\*\*:/i.test(line) ||
+            /^\*\*FILEPATHS\*\*:/i.test(line) ||
+            /^\*\*NEXT STEPS\*\*:/i.test(line) ||
+            /^I am providing you some additional guidance/i.test(line) ||
+            /^They have been automatically suggested by the system/i.test(line) ||
+            /^Workspace-level rules take precedence/i.test(line);
+
         for (const msg of messages) {
             if (msg.role !== 'user' && msg.role !== 'assistant') continue;
             if (!msg.content) continue;
 
+            const rawContent = stripKnownKiroWrappers(msg.content);
+            const contextTransferTitle = extractContextTransferTitle(rawContent);
+            if (contextTransferTitle) return contextTransferTitle;
+
+            const taskTitleMatch = rawContent.match(/<task title="([^"]+)"/i);
+            if (taskTitleMatch?.[1]) {
+                const title = normalizeTitle(taskTitleMatch[1]);
+                if (title) return title;
+            }
+
+            const issueReplyMatch = rawContent.match(/這個issue如何回覆\?.*?\/issues\/(\d+)/i);
+            if (issueReplyMatch?.[1]) {
+                return `GitHub issue #${issueReplyMatch[1]} 回覆建議`;
+            }
+
             // 移除 XML 成對標籤及其內容（例如 <environment_context>...</environment_context>）
             // 以及殘餘的 XML 開關標籤
-            const stripped = msg.content
+            const stripped = rawContent
                 .replace(/<[^>]+>[\s\S]*?<\/[^>]+>/g, '')
                 .replace(/<[^>]+>/g, '')
                 .trim();
@@ -158,9 +254,16 @@ export class SessionHandoffProvider implements vscode.TreeDataProvider<vscode.Tr
             const lines = stripped.split('\n').map(l => l.trim()).filter(l => l.length > 4);
             for (const line of lines) {
                 if (isPathLike(line)) continue;
-                // 有意義的行：截取前 45 字元
-                const title = line.substring(0, 45);
-                return line.length > 45 ? title + '...' : title;
+                if (isBoilerplateLine(line)) continue;
+
+                const taskHeadingMatch = line.match(/^##\s*TASK\s+\d+\s*:\s*(.+)$/i);
+                if (taskHeadingMatch?.[1]) {
+                    const title = normalizeTitle(taskHeadingMatch[1]);
+                    if (title) return title;
+                }
+
+                const title = normalizeTitle(line);
+                if (title) return title;
             }
         }
 
@@ -173,6 +276,29 @@ export class SessionHandoffProvider implements vscode.TreeDataProvider<vscode.Tr
 
     getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
         return element;
+    }
+
+    /**
+     * Called by VS Code when the user hovers over a tree item.
+     * In lazy mode, triggers full message load and updates the tooltip with real counts.
+     */
+    async resolveTreeItem(item: vscode.TreeItem, element: vscode.TreeItem): Promise<vscode.TreeItem> {
+        if (!(element instanceof SessionItem) || !isLazyLoadEnabled()) {
+            return item;
+        }
+        const session = element.session;
+        await this.sessionService.ensureSessionMessagesLoaded(session);
+
+        const date = new Date(session.capturedAt);
+        const tokenLabel = estimateTokenLabel(session.messages);
+        item.tooltip = [
+            `Source: ${session.sourceIde}`,
+            `Project: ${session.workspacePath || 'Unknown'}`,
+            `Last Edit: ${date.toLocaleString()}`,
+            `Messages: ${session.messages.length}  •  ${tokenLabel} tokens (est.)`,
+            `Path: ${session.rawPath}`,
+        ].join('\n');
+        return item;
     }
 
     async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {

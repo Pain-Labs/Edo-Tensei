@@ -1,4 +1,6 @@
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
+import * as readline from 'readline';
 import * as path from 'path';
 import * as os from 'os';
 import * as vscode from 'vscode';
@@ -31,7 +33,7 @@ export class ClaudeExtractor implements IChatExtractor {
   private getScanPaths(): string[] {
     const defaultPath = path.join(os.homedir(), '.claude', 'projects');
     const paths = [defaultPath];
-    
+
     try {
       const customConfig = vscode.workspace.getConfiguration('edoTensei').get<Record<string, string[]>>('customScanPaths') || {};
       const custom = customConfig[this.ideId];
@@ -41,8 +43,16 @@ export class ClaudeExtractor implements IChatExtractor {
     } catch (e) {
       // Configuration might not be available during testing
     }
-    
+
     return paths;
+  }
+
+  private isLazyEnabled(): boolean {
+    try {
+      return vscode.workspace.getConfiguration('edoTensei').get<boolean>('lazyLoadMessages', true);
+    } catch {
+      return true;
+    }
   }
 
   async extract(workspacePath?: string): Promise<CapturedSession> {
@@ -59,6 +69,7 @@ export class ClaudeExtractor implements IChatExtractor {
   }
 
   async extractAll(workspacePath?: string): Promise<CapturedSession[]> {
+    const lazy = this.isLazyEnabled();
     const scanPaths = this.getScanPaths();
     const results: CapturedSession[] = [];
 
@@ -66,147 +77,220 @@ export class ClaudeExtractor implements IChatExtractor {
       try {
         await fs.access(projectsDir);
       } catch {
-        continue; // Skip if directory doesn't exist
+        continue;
       }
 
       const projectDirs = await this.safeReadDir(projectsDir);
       for (const projectSlug of projectDirs) {
-      const projectPath = path.join(projectsDir, projectSlug);
-      const st = await this.safeStat(projectPath);
-      if (!st?.isDirectory()) continue;
+        const projectPath = path.join(projectsDir, projectSlug);
+        const st = await this.safeStat(projectPath);
+        if (!st?.isDirectory()) continue;
 
-      // Best-effort workspace filtering: only include if slug looks related to the workspace path.
-      if (workspacePath && !this.isSlugMatchWorkspace(projectSlug, workspacePath)) {
-        continue;
+        if (workspacePath && !this.isSlugMatchWorkspace(projectSlug, workspacePath)) {
+          continue;
+        }
+
+        const entries = await this.safeReadDir(projectPath);
+        for (const entry of entries) {
+          if (!entry.endsWith('.jsonl')) continue;
+
+          const filePath = path.join(projectPath, entry);
+          const fileStat = await this.safeStat(filePath);
+          if (!fileStat) continue;
+          if (fileStat.size < 200) continue;
+
+          if (lazy) {
+            const firstMsg = await this.prescanFirstUserMessage(filePath);
+            // If no user message found in first 16KB, still include session as Untitled
+            const messages: ChatMessage[] = firstMsg ? [firstMsg] : [];
+            results.push({
+              sourceIde: this.ideId,
+              capturedAt: new Date(fileStat.mtimeMs).toISOString(),
+              sessionId: path.basename(entry, '.jsonl'),
+              workspacePath: this.slugToWorkspacePath(projectSlug),
+              messages,
+              messagesLoaded: false,
+              rawPath: filePath,
+              readStatus: 'success',
+            });
+          } else {
+            const raw = await this.safeReadFile(filePath);
+            if (!raw) continue;
+            const messages = this.parseClaudeJsonl(raw);
+            if (messages.length === 0) continue;
+            results.push({
+              sourceIde: this.ideId,
+              capturedAt: new Date(fileStat.mtimeMs).toISOString(),
+              sessionId: path.basename(entry, '.jsonl'),
+              workspacePath: this.slugToWorkspacePath(projectSlug),
+              messages,
+              messagesLoaded: true,
+              rawPath: filePath,
+              readStatus: 'success',
+            });
+          }
+        }
       }
-
-      const entries = await this.safeReadDir(projectPath);
-      for (const entry of entries) {
-        if (!entry.endsWith('.jsonl')) continue;
-
-        const filePath = path.join(projectPath, entry);
-        const fileStat = await this.safeStat(filePath);
-        if (!fileStat) continue;
-
-        // Avoid tiny files (usually metadata only)
-        if (fileStat.size < 200) continue;
-
-        const raw = await this.safeReadFile(filePath);
-        if (!raw) continue;
-
-        const messages = this.parseClaudeJsonl(raw);
-        if (messages.length === 0) continue;
-
-        results.push({
-          sourceIde: this.ideId,
-          capturedAt: new Date(fileStat.mtimeMs).toISOString(),
-          sessionId: path.basename(entry, '.jsonl'),
-          workspacePath: this.slugToWorkspacePath(projectSlug),
-          messages,
-          rawPath: filePath,
-          readStatus: 'success',
-        });
-      }
-    }
     }
 
     return results.sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
   }
 
-  private parseClaudeJsonl(raw: string): ChatMessage[] {
+  /**
+   * Reads the first 16KB of a .jsonl file and returns the first valid user message.
+   * Used during lazy extractAll() to get just enough data for title extraction.
+   */
+  private async prescanFirstUserMessage(filePath: string): Promise<ChatMessage | undefined> {
+    let fd: fs.FileHandle | undefined;
+    try {
+      fd = await fs.open(filePath, 'r');
+      const buffer = Buffer.alloc(16384);
+      const { bytesRead } = await fd.read(buffer, 0, 16384, 0);
+      const chunk = buffer.toString('utf8', 0, bytesRead);
+
+      for (const line of chunk.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        let obj: ClaudeJsonlRecord;
+        try { obj = JSON.parse(trimmed) as ClaudeJsonlRecord; } catch { continue; }
+        if ((obj.type || '').toLowerCase() !== 'user') continue;
+
+        const msg = this.extractMessageFromRecord(obj);
+        if (msg) return msg;
+      }
+    } catch {
+      // ignore read errors
+    } finally {
+      await fd?.close();
+    }
+    return undefined;
+  }
+
+  /**
+   * Fully loads all messages for a session. Size-tiered to prevent OOM.
+   * Called lazily by SessionHandoffService.ensureSessionMessagesLoaded().
+   */
+  async loadFullMessages(session: CapturedSession): Promise<void> {
+    const fileStat = await this.safeStat(session.rawPath);
+    if (!fileStat) return;
+
+    const sizeMB = fileStat.size / (1024 * 1024);
+
+    if (sizeMB < 1) {
+      // Small file: safe to read entirely
+      const raw = await this.safeReadFile(session.rawPath);
+      if (!raw) return;
+      session.messages = this.parseClaudeJsonl(raw);
+    } else {
+      // Medium/large: readline streaming to cap memory usage
+      const truncateLines = sizeMB > 10;
+      session.messages = await this.parseClaudeJsonlStreaming(session.rawPath, truncateLines);
+    }
+  }
+
+  /**
+   * Streaming line-by-line parser. For files > 10MB, enforces a 50KB per-content-item cap.
+   */
+  private async parseClaudeJsonlStreaming(filePath: string, truncateLines: boolean): Promise<ChatMessage[]> {
+    const MAX_ITEM_CHARS = 50_000;
     const messages: ChatMessage[] = [];
 
-    for (const line of raw.split('\n')) {
+    const stream = fsSync.createReadStream(filePath, { encoding: 'utf8' });
+    const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+
+    for await (const line of rl) {
       const trimmed = line.trim();
       if (!trimmed) continue;
+      let obj: ClaudeJsonlRecord;
+      try { obj = JSON.parse(trimmed) as ClaudeJsonlRecord; } catch { continue; }
 
-      let obj: ClaudeJsonlRecord | undefined;
-      try {
-        obj = JSON.parse(trimmed) as ClaudeJsonlRecord;
-      } catch {
-        continue;
-      }
-
-      // We focus on events that carry message payloads.
-      const type = (obj.type || '').toLowerCase();
-      if (type !== 'user' && type !== 'assistant') continue;
-
-      const role: ChatMessage['role'] = type === 'user' ? 'user' : 'assistant';
-
-      const contentArr = obj.message?.content ?? [];
-
-      // Collect meaningful text from content items.
-      // Claude Code injects IDE context as XML (<ide_opened_file>, etc.) into the
-      // first content item. We skip tool_result items and pure-XML items.
-      const textParts: string[] = [];
-      for (const c of contentArr) {
-        if (!c) continue;
-        // Skip tool_result type items (they contain raw tool output, not user intent)
-        if (c.type === 'tool_result') continue;
-        // For text type items: strip XML tags and check if anything meaningful remains
-        if (c.type === 'text' || typeof c.text === 'string') {
-          const stripped = (c.text || '').replace(/<[^>]+>[\s\S]*?<\/[^>]+>/g, '').replace(/<[^>]+>/g, '').trim();
-          if (stripped.length > 0) {
-            textParts.push(stripped);
-          }
-        } else if (c.type === 'thinking' && typeof c.thinking === 'string') {
-          // Keep thinking content for assistant messages
-          textParts.push(c.thinking.trim());
-        }
-      }
-
-      const text = textParts.join('\n').trim();
-      if (!text) continue;
-
-      messages.push({
-        role,
-        content: text,
-        timestamp: obj.timestamp,
-      });
+      const msg = this.extractMessageFromRecord(obj, truncateLines ? MAX_ITEM_CHARS : undefined);
+      if (msg) messages.push(msg);
     }
 
     return messages;
   }
 
+  /**
+   * Shared extraction logic: converts a ClaudeJsonlRecord into a ChatMessage.
+   * @param maxItemChars - if set, truncates each content item to this length
+   */
+  private extractMessageFromRecord(obj: ClaudeJsonlRecord, maxItemChars?: number): ChatMessage | undefined {
+    const type = (obj.type || '').toLowerCase();
+    if (type !== 'user' && type !== 'assistant') return undefined;
+
+    const role: ChatMessage['role'] = type === 'user' ? 'user' : 'assistant';
+    const contentArr = obj.message?.content ?? [];
+    const textParts: string[] = [];
+
+    for (const c of contentArr) {
+      if (!c) continue;
+      if (c.type === 'tool_result') continue;
+      if (c.type === 'text' || typeof c.text === 'string') {
+        let stripped = (c.text || '')
+          .replace(/<[^>]+>[\s\S]*?<\/[^>]+>/g, '')
+          .replace(/<[^>]+>/g, '')
+          .trim();
+        if (maxItemChars && stripped.length > maxItemChars) {
+          stripped = stripped.slice(0, maxItemChars) + `\n...[truncated ${stripped.length - maxItemChars} chars]`;
+        }
+        if (stripped.length > 0) textParts.push(stripped);
+      } else if (c.type === 'thinking' && typeof c.thinking === 'string') {
+        textParts.push(c.thinking.trim());
+      }
+    }
+
+    const text = textParts.join('\n').trim();
+    if (!text) return undefined;
+
+    return { role, content: text, timestamp: obj.timestamp };
+  }
+
+  private parseClaudeJsonl(raw: string): ChatMessage[] {
+    const messages: ChatMessage[] = [];
+    for (const line of raw.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      let obj: ClaudeJsonlRecord | undefined;
+      try { obj = JSON.parse(trimmed) as ClaudeJsonlRecord; } catch { continue; }
+      const msg = this.extractMessageFromRecord(obj);
+      if (msg) messages.push(msg);
+    }
+    return messages;
+  }
+
   private isSlugMatchWorkspace(slug: string, workspacePath: string): boolean {
     const normalizedSlug = slug.toLowerCase();
-    const normalizedWs = workspacePath.replace(/\\/g, '-').replace(/\//g, '-').replace(/:/g, '-').toLowerCase();
-    return normalizedSlug.includes(normalizedWs);
+    const normalizedWs = workspacePath
+      .replace(/\\/g, '-')
+      .replace(/\//g, '-')
+      .replace(/:/g, '-')
+      .toLowerCase();
+    return normalizedSlug.includes(normalizedWs) || normalizedWs.includes(normalizedSlug);
   }
 
   private slugToWorkspacePath(slug: string): string | undefined {
-    // Claude slug pattern observed:
-    //   d--PycharmProjects-myproject
-    //   c--Users-username-MyProject
-    // This is best-effort and primarily used for grouping/labels.
-    const m = slug.match(/^([a-z])--(.+)$/i);
-    if (!m) return undefined;
-    const drive = m[1].toUpperCase();
-    const rest = m[2].replace(/-/g, path.sep);
-    return `${drive}:${path.sep}${rest}`;
+    const winMatch = slug.match(/^([a-z])--(.+)$/i);
+    if (winMatch) {
+      const drive = winMatch[1].toUpperCase();
+      const rest = winMatch[2].replace(/-/g, path.sep);
+      return `${drive}:${path.sep}${rest}`;
+    }
+    if (slug.startsWith('-')) {
+      return '/' + slug.slice(1).replace(/-/g, '/');
+    }
+    return undefined;
   }
 
   private async safeReadDir(dir: string): Promise<string[]> {
-    try {
-      return await fs.readdir(dir);
-    } catch {
-      return [];
-    }
+    try { return await fs.readdir(dir); } catch { return []; }
   }
 
   private async safeStat(p: string): Promise<import('fs').Stats | undefined> {
-    try {
-      return await fs.stat(p);
-    } catch {
-      return undefined;
-    }
+    try { return await fs.stat(p); } catch { return undefined; }
   }
 
   private async safeReadFile(p: string): Promise<string | undefined> {
-    try {
-      return await fs.readFile(p, 'utf8');
-    } catch {
-      return undefined;
-    }
+    try { return await fs.readFile(p, 'utf8'); } catch { return undefined; }
   }
 }

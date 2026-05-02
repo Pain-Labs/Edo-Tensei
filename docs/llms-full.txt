@@ -25,7 +25,8 @@ Edo Tensei is a VS Code extension that extracts local AI session histories from 
 - Two Handoff Modes:
   - Path mode (default): Outputs session file path + per-IDE reading guide. Token-efficient.
   - Full-text mode: Embeds the complete conversation.
-- One-Click Resurrect: Copies formatted handoff prompt to clipboard.
+- One-Click Resurrect: Click any session to copy a ready-to-paste handoff prompt. Right-click for more.
+- Agent Skill Generator: Generates structured edo-tensei skill/rule files for 7+ AI tools.
 - Export to .edo_tensei/: Saves prompts as Markdown, organized by IDE/project/timestamp.
 - Raw File Preview: Opens original session file in VS Code.
 - .gitignore Helper: Prompts to add .edo_tensei/ to avoid accidental commits.
@@ -33,7 +34,7 @@ Edo Tensei is a VS Code extension that extracts local AI session histories from 
 ## Configuration
 
 - edoTensei.handoffMode: "path" (default) or "fullText"
-- edoTensei.promptLanguage: "English" (default) or "Traditional Chinese"
+- edoTensei.promptLanguage: "English" (default), "Traditional Chinese", "Simplified Chinese", "Japanese", or "Korean"
 - edoTensei.customScanPaths: Object overriding default scan paths per IDE
 
 ## Commands
@@ -46,6 +47,7 @@ Edo Tensei is a VS Code extension that extracts local AI session histories from 
 - Copy Raw File Path: Copy session file path
 - Export Session to .edo_tensei: Save as Markdown file
 - Export All Sessions to .edo_tensei: Save all scanned sessions
+- Generate Agent Skill: Create reusable edo-tensei skill/rule files for other AI tools
 
 ## Privacy
 
@@ -54,7 +56,7 @@ Completely local-first. All extraction and parsing runs on your machine. No data
 ## Known Limitations
 
 - Trae: Not yet supported (SQLCipher encryption, no public key).
-- Windsurf: Binary protobuf format. Path mode only.
+- Windsurf: Currently disabled. Binary protobuf format; reliable parsing pending.
 - Antigravity: Preview log only (~900 chars/message). Full history in cloud only.
 
 ---
@@ -64,6 +66,7 @@ The extension is structured as:
 
 - extension.ts: Entry point, command registration, .gitignore helper, file system watcher
 - core/SessionHandoffService.ts: Orchestrates all extractors in parallel, caches results, builds handoff prompts
+- core/SkillGenerator.ts: Generates IDE-specific SOP files (skills/rules) for context-aware handoff
 - core/extractors/types.ts: IChatExtractor interface, CapturedSession and ChatMessage types
 - core/extractors/*Extractor.ts: One extractor per IDE, all implement IChatExtractor
 - ui/SessionHandoffProvider.ts: TreeDataProvider for the Activity Bar sidebar
@@ -94,7 +97,7 @@ buildPromptFromCapturedSession() selects between two modes:
 - path mode: calls buildPathHandoffPrompt() — outputs rawPath + per-IDE reading guide from IDE_READ_GUIDES. Falls back to fullText if the IDE has no registered guide (e.g. Windsurf binary).
 - fullText mode: calls buildFullTextPrompt() — embeds all parsed messages inline.
 
-Both modes respect edoTensei.promptLanguage (English or Traditional Chinese).
+Both modes respect edoTensei.promptLanguage (English, Traditional Chinese, Simplified Chinese, Japanese, Korean).
 
 ### Default Scan Paths (per OS environment variable / home dir)
 
@@ -129,14 +132,13 @@ vsce publish
 ---
 ## Changelog
 
-### [1.0.0] - Initial Release
+### [1.0.1] - 2026-05-02
+- Agent Skill Generator: Generates structured SOPs for Claude Code, Kiro, Cursor, Cline, Gemini CLI, etc.
+- Skill-Aware Handoff: Prompts are optimized to use workspace skills when available.
+- UI Improvement: Click session to copy (Resurrect).
+- Packaging: Reduced VSIX bundle size by 70%.
+- Localization: Full support for Traditional Chinese, Simplified Chinese, Japanese, and Korean.
 
-- Core Extraction: Standalone VS Code extension for session handoff.
+### [1.0.0] - 2026-04-29
+- Initial Release.
 - Multi-IDE Support: Claude Code CLI, Windsurf, Cursor, Copilot Chat, Kiro, Antigravity, OpenAI Codex.
-- Intelligent Title Generation: Parses chat logs to extract meaningful user intent.
-- Hierarchical View: IDE → Project → Session.
-- Resurrect Session: One-click context formatting for handoff to a new AI agent.
-- Path Handoff Mode: Token-efficient mode outputting file path + per-IDE reading guide.
-- Full-text Handoff Mode: Embeds complete conversation for maximum compatibility.
-- .gitignore Helper: Prompts to exclude .edo_tensei/ from version control.
-- Export to .edo_tensei/: Saves handoff prompts as Markdown files.

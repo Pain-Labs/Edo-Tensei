@@ -41,7 +41,6 @@ AIの使用枠がタスクの途中で切れても、別のIDEに切り替える
 | Claude Code CLI | `~/.claude/projects/` | JSONL |
 | OpenAI Codex CLI | `~/.codex/` | JSONL |
 | Kiro | `%APPDATA%/Kiro/…/kiroagent/` | JSON (`.chat`) |
-| Windsurf | `~/.codeium/windsurf/cascade/` | バイナリ形式（パスモードのみ） |
 | Antigravity | `~/.gemini/antigravity/brain/` | プレビューログのみ — 既知の制限を参照 |
 
 ---
@@ -56,6 +55,7 @@ AIの使用枠がタスクの途中で切れても、別のIDEに切り替える
 - **ワンクリック転生**：フォーマットされた引き継ぎプロンプトをクリップボードにコピー — 新しいAIチャットに貼り付けるだけでコンテキストを即座に復元。
 - **`.edo_tensei/`へのエクスポート**：引き継ぎプロンプトを`IDE/プロジェクト/タイムスタンプ`で整理されたMarkdownファイルとして保存。
 - **生ファイルプレビュー**：元のセッションファイルをVS Codeで直接開いて閲覧・編集できます。
+- **Agent Skill Generator**：Claude Code、GitHub Copilot、Kiro、Antigravity、Cline、Gemini CLI、Cursor 向けに再利用可能な `edo-tensei` skill/rule ファイルを生成します。
 - **`.gitignore`ヘルパー**：初回使用時に`.edo_tensei/`を`.gitignore`に追加するよう自動的に案内します。
 
 ![機能一覧](./assets/features.png)
@@ -64,13 +64,13 @@ AIの使用枠がタスクの途中で切れても、別のIDEに切り替える
 
 ## クイックスタート
 
-1. VS CodeのアクティビティバーにあるEdo Tenseiビュー（アーカイブアイコン）を開きます。
-2. **プロジェクトセッションをスキャン**をクリックして現在のワークスペースに一致するセッションを検索するか、**すべての履歴セッションを取得**で全体スキャンを行います。
-3. ツリービューでIDEごとにセッションを閲覧します。
-4. セッションを右クリックして**引き継ぎプロンプトをコピー**を選択します。
-5. 新しいIDE / AIエージェントに貼り付けて続行します。
+![Operation Guide](assets/ui_operation_guide.png)
 
-![UI概要](./assets/ui_sidebar_overview.png)
+1. VS CodeのアクティビティバーにあるEdo Tenseiビュー（アーカイブアイコン）を開きます。
+2. **Scan (Current Project)** または **Scan (All Projects)** をクリックして会話履歴を検索します。
+3. **セッションを直接クリック** すると、引き継ぎ用プロンプトが即座にクリップボードにコピーされます。
+4. (オプション) セッションを右クリックすると、エクスポートやプレビューなどの **詳細機能** (Advanced) を使用できます。
+5. 新しい IDE / AI エージェントにプロンプトを **貼り付けて**、作業を続行します。
 
 ---
 
@@ -81,7 +81,7 @@ VS Codeの設定で`edoTensei`を検索します。
 | 設定 | オプション | デフォルト | 説明 |
 | :--- | :--- | :--- | :--- |
 | `edoTensei.handoffMode` | `path` / `fullText` | `path` | トークン効率のため`path`を推奨。 |
-| `edoTensei.promptLanguage` | `English` / `Traditional Chinese` | `English` | 生成される引き継ぎプロンプトの言語。 |
+| `edoTensei.promptLanguage` | `English` / `Traditional Chinese` / `Simplified Chinese` / `Japanese` / `Korean` | `English` | 生成される引き継ぎプロンプトの言語。 |
 | `edoTensei.customScanPaths` | オブジェクト `{ "claude": [], … }` | `{}` | 各IDEのデフォルトスキャンディレクトリを上書きします。 |
 
 ### カスタムスキャンパスの例
@@ -111,6 +111,28 @@ VS Codeの設定で`edoTensei`を検索します。
 | Copy Raw File Path | セッションファイルのパスをクリップボードにコピー |
 | Export Session to .edo_tensei | 引き継ぎプロンプトをMarkdownファイルとして保存 |
 | Export All Sessions to .edo_tensei | スキャンされたすべてのセッションを`.edo_tensei/`に保存 |
+| Generate Agent Skill | 他の AI ツール向けに再利用可能な `edo-tensei` skill/rule ファイルを生成 |
+
+---
+
+## Agent Skills
+
+**Generate Agent Skill** を使うと、他の AI ツール向けに再利用可能な `edo-tensei` skill または rule を作成できます。生成される内容は単なるメモではなく、引き継ぎ先のエージェントに対して、候補となる session ファイルの探し方、最近で関連性の高い部分だけを読む方法、確信が低いときに停止する基準、そしてクリーンな引き継ぎサマリーの返し方まで示す構造化 SOP です。
+
+生成先：
+
+- Claude Code: `.claude/skills/edo-tensei/SKILL.md`
+- GitHub Copilot: `.github/skills/edo-tensei/SKILL.md`
+- Kiro IDE: `.kiro/skills/edo-tensei/SKILL.md`
+- Antigravity: `.agents/skills/edo-tensei/SKILL.md`
+- Cline: `.cline/skills/edo-tensei/SKILL.md`
+- Gemini CLI: `.gemini/skills/edo-tensei/SKILL.md`
+- Cursor: `.cursor/rules/edo-tensei.mdc`
+
+注意:
+
+- Cursor は slash-command skill ではなく rule ファイルを使用します。
+- workspace に `edo-tensei` skill/rule がある場合でも、引き継ぎプロンプトには手動ファイル読み取り用の fallback が含まれるため、混在したツールチェーンでも利用できます。
 
 ---
 
@@ -126,7 +148,7 @@ Edo Tenseiは完全に**ローカルファースト**です。すべての抽出
 
 - **macOS / Linux**：未対応。現在はWindowsのみサポートしています。
 - **Trae**：未対応。ローカルデータベースがSQLCipher暗号化を使用しており、公開鍵がありません。
-- **Windsurf**：セッションファイルがバイナリprotobuf形式で保存されています。Edo Tenseiは**パスモードのみ**にフォールバックします — ファイルパスと読み取りガイドをコピーしますが、会話全体を埋め込むことはできません。
+- **Windsurf**：セッションファイルはバイナリ protobuf 形式です。以前のパスのみ fallback は現在無効化されているため、信頼できるパーサーが用意されるまで Windsurf の session はスキャン結果に表示されません。
 - **Antigravity**：`overview.txt`（プレビューログ）から抽出し、各メッセージは約900文字で切り捨てられます。完全な会話履歴はAntigravityのクラウドにのみ保存され、ローカルではアクセスできません。
 
 ---
@@ -144,6 +166,28 @@ AIエージェントが作業を実行している間、ウィンドウを切り
 任意のディレクトリにまたがってタスクごとにファイルを整理し、セッションをまたいで永続化。
 
 [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=winterdrive.virtual-tabs) | [Open VSX Registry](https://open-vsx.org/extension/winterdrive/virtual-tabs)
+
+---
+
+## バグ報告
+
+バグを見つけましたか？[Issue を開いて](https://github.com/Pain-Labs/Edo-Tensei/issues)以下の情報を含めてください：
+
+- OS のバージョン（例：Windows 11 22H2）
+- 使用していた IDE と抽出しようとしたセッション
+- 再現手順
+
+---
+
+## コントリビューション歓迎
+
+あらゆる形での貢献を歓迎します！[Pull Request](https://github.com/Pain-Labs/Edo-Tensei/pulls) を直接開くか、[Issues](https://github.com/Pain-Labs/Edo-Tensei/issues) でディスカッションを始めてください。
+
+特に以下の分野でのご協力をお待ちしています：
+
+- **新しい IDE エクストラクター** — 特に macOS / Linux パスのサポート
+- **Windsurf / Trae** — セッション形式に詳しい方
+- **翻訳** — ローカライズされた README の改善や追加
 
 ---
 

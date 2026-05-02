@@ -1,4 +1,4 @@
-﻿{
+{
     "extension.displayName": "Edo Tensei",
     "extension.description": "여러 IDE의 AI 세션 기록을 로컬에서 추출·복원·관리합니다.",
     "config.title": "Edo Tensei",
@@ -8,17 +8,21 @@
     "config.handoffMode.fullTextDescription": "전체 대화를 프롬프트에 포함합니다. 어디서나 동작하지만 더 많은 토큰을 사용합니다.",
     "config.customScanPaths.description": "각 IDE의 세션 기록을 스캔할 커스텀 절대 경로입니다. (예: { \"claude\": [\"D:/custom/.claude\"] })",
     "viewContainer.title": "Edo Tensei",
-    "view.sessions.name": "Sessions",
-    "view.welcome": "Edo Tensei를 사용할 준비가 되었나요?\n\n[모든 과거 Sessions 가져오기](command:edoTensei.fetchAllSessions)",
+    "view.sessions.name": "Edo Tensei",
+    "view.welcome": "Edo Tensei — IDE를 넘나들며 AI Session을 이어받아, 처음부터 다시 시작하지 않아도 됩니다.\n\n[스캔 (현재 프로젝트)](command:edoTensei.scanSessions)\n\n[스캔 (전체 프로젝트)](command:edoTensei.fetchAllSessions)\n\n[Agent Skill 생성](command:edoTensei.generateAgentSkill)",
     "command.resurrectSession.title": "Edo Tensei: Session 되살리기",
     "command.copyHandoffPrompt.title": "Edo Tensei: 인계 프롬프트 복사",
     "command.openSessionFile.title": "Edo Tensei: Session 파일 열기",
     "command.scanSessions.title": "프로젝트 Sessions 스캔",
     "command.fetchAllSessions.title": "모든 과거 Sessions 가져오기",
-    "command.exportAllSessions.title": "모든 Sessions를 .edo_tensei로 내보내기",
-    "command.exportSession.title": "Session을 .edo_tensei로 내보내기",
+    "command.exportAllSessions.title": "파싱된 모든 Sessions를 .edo_tensei로 내보내기",
+    "command.exportSession.title": "파싱된 Session을 .edo_tensei로 내보내기",
     "command.previewRawSession.title": "원본 Session 파일 미리보기",
     "command.viewParsedSession.title": "파싱된 Session 보기",
     "command.copyRawPath.title": "원본 파일 경로 복사",
-    "command.openSettings.title": "Edo Tensei: 설정"
+    "command.copyReferencePrompt.title": "Reference Prompt 복사",
+    "command.copyContextPrompt.title": "Context Prompt 복사",
+    "command.openSettings.title": "Edo Tensei: 설정",
+    "command.generateAgentSkill.title": "Agent Skill 생성",
+    "config.lazyLoadMessages.description": "지연 로딩 활성화: 스캔 시 첫 번째 메시지만 읽고, 마우스 오버·미리보기 시 전체 내용을 로드합니다. 끄면 디버깅 비교를 위한 즉시 로딩 모드로 돌아갑니다."
 }

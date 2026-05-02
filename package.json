@@ -2,7 +2,7 @@
   "name": "edo-tensei",
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "Pain-Labs",
   "icon": "docs/assets/edo_tensei_logo_128.png",
   "license": "MIT",
@@ -36,7 +36,8 @@
     "onStartupFinished",
     "onView:sessionHandoffView",
     "onCommand:edoTensei.scanSessions",
-    "onCommand:edoTensei.fetchAllSessions"
+    "onCommand:edoTensei.fetchAllSessions",
+    "onCommand:edoTensei.generateAgentSkill"
   ],
   "contributes": {
     "configuration": {
@@ -78,6 +79,11 @@
             "antigravity": []
           },
           "description": "%config.customScanPaths.description%"
+        },
+        "edoTensei.lazyLoadMessages": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.lazyLoadMessages.description%"
         }
       }
     },
@@ -171,6 +177,24 @@
         "title": "%command.openSettings.title%",
         "category": "Edo Tensei",
         "icon": "$(settings-gear)"
+      },
+      {
+        "command": "edoTensei.generateAgentSkill",
+        "title": "%command.generateAgentSkill.title%",
+        "category": "Edo Tensei",
+        "icon": "$(hubot)"
+      },
+      {
+        "command": "edoTensei.copyReferencePrompt",
+        "title": "%command.copyReferencePrompt.title%",
+        "category": "Edo Tensei",
+        "icon": "$(file-symlink-file)"
+      },
+      {
+        "command": "edoTensei.copyContextPrompt",
+        "title": "%command.copyContextPrompt.title%",
+        "category": "Edo Tensei",
+        "icon": "$(symbol-string)"
       }
     ],
     "menus": {
@@ -194,11 +218,16 @@
           "command": "edoTensei.openSettings",
           "when": "view == sessionHandoffView",
           "group": "navigation@99"
+        },
+        {
+          "command": "edoTensei.generateAgentSkill",
+          "when": "view == sessionHandoffView",
+          "group": "navigation@98"
         }
       ],
       "view/item/context": [
         {
-          "command": "edoTensei.viewParsedSession",
+          "command": "edoTensei.copyHandoffPrompt",
           "when": "view == sessionHandoffView && viewItem == sessionItem",
           "group": "inline@1"
         },
@@ -213,14 +242,24 @@
           "group": "inline@3"
         },
         {
-          "command": "edoTensei.copyHandoffPrompt",
+          "command": "edoTensei.previewRawSession",
           "when": "view == sessionHandoffView && viewItem == sessionItem",
           "group": "session@1"
         },
         {
-          "command": "edoTensei.previewRawSession",
+          "command": "edoTensei.exportSession",
           "when": "view == sessionHandoffView && viewItem == sessionItem",
           "group": "session@2"
+        },
+        {
+          "command": "edoTensei.copyReferencePrompt",
+          "when": "view == sessionHandoffView && viewItem == sessionItem",
+          "group": "session@3"
+        },
+        {
+          "command": "edoTensei.copyContextPrompt",
+          "when": "view == sessionHandoffView && viewItem == sessionItem",
+          "group": "session@4"
         }
       ]
     }

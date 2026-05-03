@@ -45,23 +45,25 @@ export class SessionHandoffService {
     }
 
     /**
-     * Scan for ALL sessions that match the current workspace (project).
+     * Scan for ALL sessions that match any of the current workspace folders (project).
+     * Supports multi-root workspaces.
      */
     async scanProjectSessions(): Promise<CapturedSession[]> {
         this.scanMode = 'project';
         this.cachedSessions = [];
         this._onDidUpdateSessions.fire(); // Clear UI immediately
 
-        const workspacePath = this.getWorkspaceRoot()?.fsPath;
-        if (!workspacePath) {
+        const workspacePaths = this.getWorkspaceRoots().map(uri => uri.fsPath);
+        if (workspacePaths.length === 0) {
             return [];
         }
 
         await Promise.all(
             this.extractors.map(async (e) => {
                 try {
-                    const sessions = await e.extractAll(workspacePath, this.getCustomPaths(e.ideId));
-                    const matched = sessions.filter((s) => this.isSameWorkspace(s, workspacePath) && s.messages.length > 0);
+                    // Pass the first workspace path as a hint; extractors use it to scope their search.
+                    const sessions = await e.extractAll(workspacePaths[0], this.getCustomPaths(e.ideId));
+                    const matched = sessions.filter((s) => this.isAnyWorkspace(s, workspacePaths) && s.messages.length > 0);
                     if (matched.length > 0) {
                         this.cachedSessions.push(...matched);
                         this.cachedSessions.sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
@@ -138,6 +140,14 @@ export class SessionHandoffService {
         return false;
     }
 
+    /**
+     * Returns true if the session matches any of the provided workspace paths.
+     * Used for multi-root workspace support.
+     */
+    private isAnyWorkspace(session: CapturedSession, workspacePaths: string[]): boolean {
+        return workspacePaths.some(wp => this.isSameWorkspace(session, wp));
+    }
+
     getGroupedSessions(): Map<string, CapturedSession[]> {
         const sessions = this.getSessions();
         const groups = new Map<string, CapturedSession[]>();
@@ -160,9 +170,17 @@ export class SessionHandoffService {
         return folders && folders.length > 0 ? folders[0].uri : undefined;
     }
 
+    /**
+     * Returns the URIs of all workspace roots in a multi-root workspace.
+     */
+    public getWorkspaceRoots(): vscode.Uri[] {
+        return (vscode.workspace.workspaceFolders ?? []).map(f => f.uri);
+    }
+
     public hasSkillInstalled(): boolean {
-        const workspaceRoot = this.getWorkspaceRoot()?.fsPath;
-        return workspaceRoot ? SessionHandoffService.detectSkillInWorkspace(workspaceRoot) : false;
+        return this.getWorkspaceRoots().some(uri =>
+            SessionHandoffService.detectSkillInWorkspace(uri.fsPath)
+        );
     }
 
     private static detectSkillInWorkspace(projectRoot: string): boolean {
@@ -277,10 +295,7 @@ export class SessionHandoffService {
         if (mode === 'path') {
             const guide = SessionHandoffService.IDE_READ_GUIDES[session.sourceIde];
             if (guide) {
-                const workspaceRoot = this.getWorkspaceRoot()?.fsPath;
-                const skillFound = workspaceRoot
-                    ? SessionHandoffService.detectSkillInWorkspace(workspaceRoot)
-                    : false;
+                const skillFound = this.hasSkillInstalled();
                 const prompt = this.buildPathHandoffPrompt(session, lang, guide, skillFound);
                 return largeWarning ? largeWarning + prompt : prompt;
             }
@@ -329,10 +344,7 @@ export class SessionHandoffService {
 
         const guide = SessionHandoffService.IDE_READ_GUIDES[session.sourceIde];
         if (guide) {
-            const workspaceRoot = this.getWorkspaceRoot()?.fsPath;
-            const skillFound = workspaceRoot
-                ? SessionHandoffService.detectSkillInWorkspace(workspaceRoot)
-                : false;
+            const skillFound = this.hasSkillInstalled();
             const prompt = this.buildPathHandoffPrompt(session, lang, guide, skillFound);
             return largeWarning ? largeWarning + prompt : prompt;
         }

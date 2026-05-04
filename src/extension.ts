@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as crypto from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
@@ -297,6 +298,11 @@ export async function activate(context: vscode.ExtensionContext) {
     const sessionHandoffProvider = new SessionHandoffProvider(sessionService);
     let isScanning = false; // Throttle guard: prevents duplicate scan from rapid button clicks
 
+    const sessionPreviewKeyToId = new Map<string, string>();
+    const sessionPreviewKeyToUri = new Map<string, vscode.Uri>();
+    const sessionPreviewKeyToContent = new Map<string, string>();
+    const sessionPreviewKeyToInFlight = new Map<string, Promise<void>>();
+
     // Track per-folder watchers so we can dispose them when folders are removed.
     // These are NOT added to context.subscriptions to avoid double-disposal;
     // they are cleaned up either by teardownFolderWatcher or the final subscription below.
@@ -551,10 +557,63 @@ export async function activate(context: vscode.ExtensionContext) {
                 vscode.window.showWarningMessage(I18n.getMessage('session.notSelected'));
                 return;
             }
-            await sessionService.ensureSessionMessagesLoaded(item.session);
-            const content = sessionService.buildReadableTranscript(item.session);
-            const doc = await vscode.workspace.openTextDocument({ content, language: 'markdown' });
-            await vscode.commands.executeCommand('markdown.showPreview', doc.uri);
+
+            const sessionKey = item.session.rawPath || item.session.sessionId || `${item.session.sourceIde}:${item.session.capturedAt}`;
+            let shortId = sessionPreviewKeyToId.get(sessionKey);
+            if (!shortId) {
+                shortId = crypto.createHash('sha1').update(sessionKey).digest('hex').slice(0, 10);
+                sessionPreviewKeyToId.set(sessionKey, shortId);
+            }
+
+            let uri = sessionPreviewKeyToUri.get(sessionKey);
+            if (!uri) {
+                // Use a stable untitled URI so repeated clicks do not create duplicate documents.
+                uri = vscode.Uri.parse(`untitled:Edo-Tensei-${shortId}.md`);
+                sessionPreviewKeyToUri.set(sessionKey, uri);
+            }
+
+            const applyContentToUntitled = async (content: string): Promise<void> => {
+                const doc = await vscode.workspace.openTextDocument(uri);
+                const edit = new vscode.WorkspaceEdit();
+                const endLine = Math.max(doc.lineCount - 1, 0);
+                const endChar = doc.lineCount > 0 ? doc.lineAt(endLine).text.length : 0;
+                const fullRange = new vscode.Range(0, 0, endLine, endChar);
+                edit.replace(uri, fullRange, content);
+                await vscode.workspace.applyEdit(edit);
+            };
+
+            const cached = sessionPreviewKeyToContent.get(sessionKey);
+            if (cached) {
+                await applyContentToUntitled(cached);
+                await vscode.commands.executeCommand('markdown.showPreview', uri);
+                return;
+            }
+
+            // If a load is already running for this session, don't reset the doc back to Loading…
+            const inFlight = sessionPreviewKeyToInFlight.get(sessionKey);
+            if (!inFlight) {
+                await applyContentToUntitled('Loading…');
+            }
+            await vscode.commands.executeCommand('markdown.showPreview', uri);
+
+            if (inFlight) {
+                return;
+            }
+
+            const loadPromise = (async () => {
+                const status = vscode.window.setStatusBarMessage('Edo Tensei: loading session…');
+                try {
+                    await sessionService.ensureSessionMessagesLoaded(item.session);
+                    const content = sessionService.buildReadableTranscript(item.session);
+                    sessionPreviewKeyToContent.set(sessionKey, content);
+                    await applyContentToUntitled(content);
+                } finally {
+                    status.dispose();
+                    sessionPreviewKeyToInFlight.delete(sessionKey);
+                }
+            })();
+
+            sessionPreviewKeyToInFlight.set(sessionKey, loadPromise);
         })
     );
 

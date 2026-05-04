@@ -64,6 +64,26 @@ interface CopilotJsonlLine {
 export class CopilotExtractor implements IChatExtractor {
   readonly ideId = 'copilot' as const;
 
+  private async tryResolveWorkspaceFileFolders(workspaceFilePath: string): Promise<string[]> {
+    try {
+      const raw = await fs.readFile(workspaceFilePath, 'utf8');
+      const parsed = JSON.parse(raw) as any;
+      const baseDir = path.dirname(workspaceFilePath);
+      const folders = Array.isArray(parsed?.folders) ? parsed.folders : [];
+
+      const resolved: string[] = [];
+      for (const f of folders) {
+        const p = f?.path;
+        if (typeof p !== 'string' || !p) { continue; }
+        const abs = path.isAbsolute(p) ? p : path.resolve(baseDir, p);
+        resolved.push(abs);
+      }
+      return resolved;
+    } catch {
+      return [];
+    }
+  }
+
   private getVSCodeUserDirs(): string[] {
     const dirs: string[] = [];
     const home = os.homedir();
@@ -171,6 +191,8 @@ export class CopilotExtractor implements IChatExtractor {
             const entryDir = path.join(workspaceStorageDir, entry);
             let resolvedWsPath: string | undefined;
 
+            let resolvedFolderPaths: string[] = [];
+
             try {
               const wsJsonPath = path.join(entryDir, 'workspace.json');
               const content = await fs.readFile(wsJsonPath, 'utf8');
@@ -178,6 +200,10 @@ export class CopilotExtractor implements IChatExtractor {
               const folderUri = wsJson.folder || wsJson.workspace;
               if (folderUri && typeof folderUri === 'string') {
                 resolvedWsPath = decodeURIComponent(folderUri).replace(/^file:\/\/\//, '').replace(/\//g, path.sep);
+
+                if (resolvedWsPath.toLowerCase().endsWith('.code-workspace')) {
+                  resolvedFolderPaths = await this.tryResolveWorkspaceFileFolders(resolvedWsPath);
+                }
               }
             } catch { /* skip */ }
 
@@ -186,12 +212,29 @@ export class CopilotExtractor implements IChatExtractor {
               const search = _workspacePath.replace(/\\/g, '/').toLowerCase();
               const target = resolvedWsPath.replace(/\\/g, '/').toLowerCase();
               if (!target.includes(search) && !search.includes(target)) {
-                return [];
+                if (resolvedFolderPaths.length === 0) {
+                  return [];
+                }
+                const folderMatched = resolvedFolderPaths.some(fp => {
+                  const t = fp.replace(/\\/g, '/').toLowerCase();
+                  return t.includes(search) || search.includes(t);
+                });
+                if (!folderMatched) {
+                  return [];
+                }
               }
             }
 
             const chatSessionsDir = path.join(entryDir, 'chatSessions');
-            return this.extractFromDir(chatSessionsDir, resolvedWsPath);
+            let wsPathForSession: string | undefined = resolvedWsPath;
+            if (resolvedFolderPaths.length > 0) {
+              if (_workspacePath) {
+                wsPathForSession = _workspacePath;
+              } else {
+                wsPathForSession = resolvedFolderPaths[0];
+              }
+            }
+            return this.extractFromDir(chatSessionsDir, wsPathForSession);
           })
         );
 

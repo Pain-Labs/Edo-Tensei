@@ -30,6 +30,7 @@
  */
 
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as vscode from 'vscode';
@@ -118,7 +119,7 @@ export class KiroExtractor implements IChatExtractor {
       results.push(...formatBResults);
 
       // 格式 A：舊版 .chat 檔案（根目錄下的 hash 資料夾）
-      const formatAResults = await this.extractLegacyChatFiles(rootDir);
+      const formatAResults = await this.extractLegacyChatFiles(rootDir, workspacePath);
       results.push(...formatAResults);
     }
 
@@ -209,6 +210,152 @@ export class KiroExtractor implements IChatExtractor {
         results.push(...sessions);
       }
     } catch { /* workspace-sessions dir may not exist */ }
+
+    return results;
+  }
+
+  private inferLegacyWorkspacePath(raw: string, workspacePath: string): string | undefined {
+    try {
+      const obj = JSON.parse(raw) as any;
+      const contextArr = Array.isArray(obj?.context) ? obj.context : [];
+      const fileTreeText = contextArr
+        .map((c: any) => typeof c?.staticDirectoryView === 'string' ? c.staticDirectoryView : '')
+        .find((t: string) => t.includes('<fileTree>'));
+
+      if (!fileTreeText) {
+        return undefined;
+      }
+
+      const names = new Set<string>();
+      for (const m of fileTreeText.matchAll(/<(?:folder|file)\s+name='([^']+)'/g)) {
+        const name = m[1];
+        if (!name || name.includes('/')) { continue; }
+        names.add(name);
+      }
+
+      if (names.size === 0) {
+        return undefined;
+      }
+
+      let hits = 0;
+      for (const n of names) {
+        try {
+          if (fsSync.existsSync(path.join(workspacePath, n))) {
+            hits++;
+          }
+        } catch {
+          // ignore
+        }
+        if (hits >= 3) {
+          return workspacePath;
+        }
+      }
+
+      return undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private getLegacyExecutionId(raw: string): string | undefined {
+    try {
+      const obj = JSON.parse(raw) as any;
+      const execId = obj?.executionId;
+      return typeof execId === 'string' && execId.trim() ? execId.trim() : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async extractLegacyChatFiles(rootDir: string, workspacePath?: string): Promise<CapturedSession[]> {
+    const results: CapturedSession[] = [];
+    try {
+      await fs.access(rootDir);
+      const folders = await fs.readdir(rootDir);
+      const hexFolders = folders.filter(f => this.isHexHash(f));
+
+      const folderResults = await Promise.all(
+        hexFolders.map(async (folder): Promise<CapturedSession[]> => {
+          const folderPath = path.join(rootDir, folder);
+          try {
+            const s = await fs.stat(folderPath);
+            if (!s.isDirectory()) return [];
+
+            const files = await fs.readdir(folderPath);
+            const chatFiles = files.filter(f => f.endsWith('.chat'));
+
+            const fileResults = await Promise.all(
+              chatFiles.map(async (f): Promise<{ session?: CapturedSession; executionId?: string; mtimeMs: number; messageCount: number } | undefined> => {
+                const filePath = path.join(folderPath, f);
+                try {
+                  const fsStat = await fs.stat(filePath);
+                  const raw = await fs.readFile(filePath, 'utf8');
+
+                  const executionId = this.getLegacyExecutionId(raw);
+
+                  let resolvedWorkspacePath: string | undefined;
+                  if (workspacePath) {
+                    resolvedWorkspacePath = this.inferLegacyWorkspacePath(raw, workspacePath);
+                    if (!resolvedWorkspacePath) {
+                      return undefined;
+                    }
+                  }
+
+                  const messages = this.parseLegacyKiroChat(raw);
+                  if (messages.length > 0) {
+                    const session: CapturedSession = {
+                      sourceIde: this.ideId,
+                      capturedAt: new Date(fsStat.mtimeMs).toISOString(),
+                      sessionId: executionId ?? f.replace(/\.chat$/i, ''),
+                      messages,
+                      rawPath: filePath,
+                      workspacePath: resolvedWorkspacePath,
+                      readStatus: 'success',
+                    };
+
+                    return {
+                      session,
+                      executionId,
+                      mtimeMs: fsStat.mtimeMs,
+                      messageCount: messages.length,
+                    };
+                  }
+                } catch { /* skip */ }
+                return undefined;
+              })
+            );
+
+            const byExec = new Map<string, { session: CapturedSession; mtimeMs: number; messageCount: number }>();
+            const withoutExec: CapturedSession[] = [];
+            for (const r of fileResults) {
+              if (!r?.session) { continue; }
+              const key = r.executionId;
+              if (!key) {
+                withoutExec.push(r.session);
+                continue;
+              }
+              const prev = byExec.get(key);
+              if (!prev) {
+                byExec.set(key, { session: r.session, mtimeMs: r.mtimeMs, messageCount: r.messageCount });
+                continue;
+              }
+              const prefer =
+                r.mtimeMs > prev.mtimeMs ||
+                (r.mtimeMs === prev.mtimeMs && r.messageCount > prev.messageCount);
+              if (prefer) {
+                byExec.set(key, { session: r.session, mtimeMs: r.mtimeMs, messageCount: r.messageCount });
+              }
+            }
+
+            return [...byExec.values()].map(v => v.session).concat(withoutExec);
+          } catch { return []; }
+        })
+      );
+
+      for (const sessions of folderResults) {
+        results.push(...sessions);
+      }
+    } catch { /* rootDir inaccessible */ }
 
     return results;
   }
@@ -457,58 +604,6 @@ export class KiroExtractor implements IChatExtractor {
   }
 
   // ── 格式 A：舊版 .chat 檔案 ────────────────────────────────────
-
-  private async extractLegacyChatFiles(rootDir: string): Promise<CapturedSession[]> {
-    const results: CapturedSession[] = [];
-    try {
-      await fs.access(rootDir);
-      const folders = await fs.readdir(rootDir);
-      const hexFolders = folders.filter(f => this.isHexHash(f));
-
-      // Process all hash folders in parallel
-      const folderResults = await Promise.all(
-        hexFolders.map(async (folder): Promise<CapturedSession[]> => {
-          const folderPath = path.join(rootDir, folder);
-          try {
-            const s = await fs.stat(folderPath);
-            if (!s.isDirectory()) return [];
-
-            const files = await fs.readdir(folderPath);
-            const chatFiles = files.filter(f => f.endsWith('.chat'));
-
-            const fileResults = await Promise.all(
-              chatFiles.map(async (f): Promise<CapturedSession | undefined> => {
-                const filePath = path.join(folderPath, f);
-                try {
-                  const fsStat = await fs.stat(filePath);
-                  const raw = await fs.readFile(filePath, 'utf8');
-                  const messages = this.parseLegacyKiroChat(raw);
-                  if (messages.length > 0) {
-                    return {
-                      sourceIde: this.ideId,
-                      capturedAt: new Date(fsStat.mtimeMs).toISOString(),
-                      messages,
-                      rawPath: filePath,
-                      readStatus: 'success',
-                    };
-                  }
-                } catch { /* skip */ }
-                return undefined;
-              })
-            );
-
-            return fileResults.filter((s): s is CapturedSession => s !== undefined);
-          } catch { return []; }
-        })
-      );
-
-      for (const sessions of folderResults) {
-        results.push(...sessions);
-      }
-    } catch { /* rootDir inaccessible */ }
-
-    return results;
-  }
 
   private isHexHash(name: string): boolean {
     return /^[0-9a-f]{32}$/i.test(name);

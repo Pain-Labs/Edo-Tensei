@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as crypto from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
@@ -12,11 +13,6 @@ const execFileAsync = promisify(execFile);
 
 const SUPPRESS_GITIGNORE_PROMPT_KEY_PREFIX = 'edoTensei.suppressGitignorePrompt:';
 const GITIGNORE_COOLDOWN_MS = 60_000;
-
-function getPrimaryWorkspaceFolder(): vscode.WorkspaceFolder | undefined {
-    const folders = vscode.workspace.workspaceFolders;
-    return folders && folders.length > 0 ? folders[0] : undefined;
-}
 
 function sanitizePathSegment(input: string): string {
     // Conservative: keep common characters, replace the rest.
@@ -302,28 +298,81 @@ export async function activate(context: vscode.ExtensionContext) {
     const sessionHandoffProvider = new SessionHandoffProvider(sessionService);
     let isScanning = false; // Throttle guard: prevents duplicate scan from rapid button clicks
 
-    const workspaceFolder = getPrimaryWorkspaceFolder();
-    let createdWatcher: vscode.FileSystemWatcher | undefined;
-    if (workspaceFolder) {
+    const sessionPreviewKeyToId = new Map<string, string>();
+    const sessionPreviewKeyToUri = new Map<string, vscode.Uri>();
+    const sessionPreviewKeyToContent = new Map<string, string>();
+    const sessionPreviewKeyToInFlight = new Map<string, Promise<void>>();
+
+    // Track per-folder watchers so we can dispose them when folders are removed.
+    // These are NOT added to context.subscriptions to avoid double-disposal;
+    // they are cleaned up either by teardownFolderWatcher or the final subscription below.
+    const folderWatchers = new Map<string, vscode.Disposable[]>();
+
+    function setupFolderWatcher(workspaceFolder: vscode.WorkspaceFolder): void {
+        if (folderWatchers.has(workspaceFolder.uri.fsPath)) {
+            return; // Already set up
+        }
+
+        const disposables: vscode.Disposable[] = [];
+
         // Initial check (covers pre-existing `.edo_tensei/` in the workspace).
         void maybePromptAddGitignoreRule(context, workspaceFolder, 'created');
 
         // Trigger A: first creation/write of `.edo_tensei/`.
-        createdWatcher = vscode.workspace.createFileSystemWatcher(
+        const createdWatcher = vscode.workspace.createFileSystemWatcher(
             new vscode.RelativePattern(workspaceFolder, '.edo_tensei/**')
         );
-        context.subscriptions.push(createdWatcher);
         createdWatcher.onDidCreate(() => {
             void maybePromptAddGitignoreRule(context, workspaceFolder, 'created');
-        });
+        }, undefined, disposables);
+        disposables.push(createdWatcher);
 
-        // Trigger B: on every save, if `.edo_tensei/` not ignored.
-        context.subscriptions.push(
-            vscode.workspace.onDidSaveTextDocument(() => {
-                void maybePromptAddGitignoreRule(context, workspaceFolder, 'save');
-            })
-        );
+        // Trigger B: on every save, check this specific folder.
+        const saveDisposable = vscode.workspace.onDidSaveTextDocument(() => {
+            void maybePromptAddGitignoreRule(context, workspaceFolder, 'save');
+        });
+        disposables.push(saveDisposable);
+
+        folderWatchers.set(workspaceFolder.uri.fsPath, disposables);
     }
+
+    function teardownFolderWatcher(fsPath: string): void {
+        const disposables = folderWatchers.get(fsPath);
+        if (disposables) {
+            for (const d of disposables) { d.dispose(); }
+            folderWatchers.delete(fsPath);
+        }
+    }
+
+    // Set up watchers for all existing workspace folders.
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+        setupFolderWatcher(folder);
+    }
+
+    // Dynamically handle workspace folder additions and removals.
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeWorkspaceFolders(event => {
+            for (const added of event.added) {
+                setupFolderWatcher(added);
+            }
+            for (const removed of event.removed) {
+                teardownFolderWatcher(removed.uri.fsPath);
+            }
+        })
+    );
+
+    // Dispose any remaining per-folder watchers when the extension deactivates.
+    context.subscriptions.push({
+        dispose: () => {
+            for (const fsPath of [...folderWatchers.keys()]) {
+                teardownFolderWatcher(fsPath);
+            }
+        }
+    });
+
+    // Keep a reference to the first workspace folder for export operations.
+    const getExportWorkspaceFolder = (): vscode.WorkspaceFolder | undefined =>
+        vscode.workspace.workspaceFolders?.[0];
 
     context.subscriptions.push(
         vscode.window.registerTreeDataProvider('sessionHandoffView', sessionHandoffProvider)
@@ -436,6 +485,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 vscode.window.showWarningMessage(I18n.getMessage('export.noSessions'));
                 return;
             }
+            const workspaceFolder = getExportWorkspaceFolder();
             if (!workspaceFolder) {
                 vscode.window.showWarningMessage(I18n.getMessage('export.noWorkspace'));
                 return;
@@ -478,6 +528,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 vscode.window.showWarningMessage(I18n.getMessage('session.notSelected'));
                 return;
             }
+            const workspaceFolder = getExportWorkspaceFolder();
             if (!workspaceFolder) {
                 vscode.window.showWarningMessage(I18n.getMessage('export.noWorkspace'));
                 return;
@@ -506,10 +557,63 @@ export async function activate(context: vscode.ExtensionContext) {
                 vscode.window.showWarningMessage(I18n.getMessage('session.notSelected'));
                 return;
             }
-            await sessionService.ensureSessionMessagesLoaded(item.session);
-            const content = sessionService.buildReadableTranscript(item.session);
-            const doc = await vscode.workspace.openTextDocument({ content, language: 'markdown' });
-            await vscode.commands.executeCommand('markdown.showPreview', doc.uri);
+
+            const sessionKey = item.session.rawPath || item.session.sessionId || `${item.session.sourceIde}:${item.session.capturedAt}`;
+            let shortId = sessionPreviewKeyToId.get(sessionKey);
+            if (!shortId) {
+                shortId = crypto.createHash('sha1').update(sessionKey).digest('hex').slice(0, 10);
+                sessionPreviewKeyToId.set(sessionKey, shortId);
+            }
+
+            let uri = sessionPreviewKeyToUri.get(sessionKey);
+            if (!uri) {
+                // Use a stable untitled URI so repeated clicks do not create duplicate documents.
+                uri = vscode.Uri.parse(`untitled:Edo-Tensei-${shortId}.md`);
+                sessionPreviewKeyToUri.set(sessionKey, uri);
+            }
+
+            const applyContentToUntitled = async (content: string): Promise<void> => {
+                const doc = await vscode.workspace.openTextDocument(uri);
+                const edit = new vscode.WorkspaceEdit();
+                const endLine = Math.max(doc.lineCount - 1, 0);
+                const endChar = doc.lineCount > 0 ? doc.lineAt(endLine).text.length : 0;
+                const fullRange = new vscode.Range(0, 0, endLine, endChar);
+                edit.replace(uri, fullRange, content);
+                await vscode.workspace.applyEdit(edit);
+            };
+
+            const cached = sessionPreviewKeyToContent.get(sessionKey);
+            if (cached) {
+                await applyContentToUntitled(cached);
+                await vscode.commands.executeCommand('markdown.showPreview', uri);
+                return;
+            }
+
+            // If a load is already running for this session, don't reset the doc back to Loading…
+            const inFlight = sessionPreviewKeyToInFlight.get(sessionKey);
+            if (!inFlight) {
+                await applyContentToUntitled('Loading…');
+            }
+            await vscode.commands.executeCommand('markdown.showPreview', uri);
+
+            if (inFlight) {
+                return;
+            }
+
+            const loadPromise = (async () => {
+                const status = vscode.window.setStatusBarMessage('Edo Tensei: loading session…');
+                try {
+                    await sessionService.ensureSessionMessagesLoaded(item.session);
+                    const content = sessionService.buildReadableTranscript(item.session);
+                    sessionPreviewKeyToContent.set(sessionKey, content);
+                    await applyContentToUntitled(content);
+                } finally {
+                    status.dispose();
+                    sessionPreviewKeyToInFlight.delete(sessionKey);
+                }
+            })();
+
+            sessionPreviewKeyToInFlight.set(sessionKey, loadPromise);
         })
     );
 
@@ -546,21 +650,24 @@ export async function activate(context: vscode.ExtensionContext) {
             const addToGitignoreLabel = I18n.getMessage('skill.addToGitignore');
             const picked = await vscode.window.showInformationMessage(message, addToGitignoreLabel);
 
-            if (picked === addToGitignoreLabel && workspaceFolder) {
-                const targetPath = await pickGitignoreTargetPath(workspaceFolder.uri.fsPath);
-                if (targetPath) {
-                    const rules = skillPaths.map(p => {
-                        const rel = path.relative(projectRoot, p).replace(/\\/g, '/');
-                        return rel.endsWith('SKILL.md') ? rel.substring(0, rel.lastIndexOf('/') + 1) : rel;
-                    });
-                    await addSkillRulesToGitignore(targetPath, rules);
-                    const open = await vscode.window.showInformationMessage(
-                        I18n.getMessage('skill.gitignoreAdded'),
-                        I18n.getMessage('gitignore.openFile')
-                    );
-                    if (open === I18n.getMessage('gitignore.openFile')) {
-                        const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(targetPath));
-                        await vscode.window.showTextDocument(doc);
+            if (picked === addToGitignoreLabel) {
+                const skillWorkspaceFolder = getExportWorkspaceFolder();
+                if (skillWorkspaceFolder) {
+                    const targetPath = await pickGitignoreTargetPath(skillWorkspaceFolder.uri.fsPath);
+                    if (targetPath) {
+                        const rules = skillPaths.map(p => {
+                            const rel = path.relative(projectRoot, p).replace(/\\/g, '/');
+                            return rel.endsWith('SKILL.md') ? rel.substring(0, rel.lastIndexOf('/') + 1) : rel;
+                        });
+                        await addSkillRulesToGitignore(targetPath, rules);
+                        const open = await vscode.window.showInformationMessage(
+                            I18n.getMessage('skill.gitignoreAdded'),
+                            I18n.getMessage('gitignore.openFile')
+                        );
+                        if (open === I18n.getMessage('gitignore.openFile')) {
+                            const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(targetPath));
+                            await vscode.window.showTextDocument(doc);
+                        }
                     }
                 }
             }

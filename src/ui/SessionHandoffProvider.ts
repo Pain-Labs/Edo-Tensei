@@ -58,11 +58,12 @@ export class IDEParentItem extends vscode.TreeItem {
     constructor(
         public readonly label: string,
         public readonly ideId: string,
-        public readonly sessionCount: number
+        public readonly sessionCount: number,
+        public readonly statusText?: string
     ) {
         super(label, vscode.TreeItemCollapsibleState.Collapsed);
         this.contextValue = 'ideParentItem';
-        this.description = I18n.getMessage('tree.sessionCount', String(sessionCount));
+        this.description = statusText ?? I18n.getMessage('tree.sessionCount', String(sessionCount));
 
         const iconMap: Record<string, string> = {
             'cursor': 'account',
@@ -307,12 +308,29 @@ export class SessionHandoffProvider implements vscode.TreeDataProvider<vscode.Tr
         if (!element) {
             const grouped = this.sessionService.getGroupedSessions();
             const items: IDEParentItem[] = [];
-            for (const [ideId, sessions] of grouped.entries()) {
-                // 只有當真的有 session 時才顯示該 IDE 資料夾
-                if (sessions.length > 0) {
-                    const label = ideId.charAt(0).toUpperCase() + ideId.slice(1);
-                    items.push(new IDEParentItem(label, ideId, sessions.length));
+
+            const isScanning = this.sessionService.isScanning();
+            const statusMap = this.sessionService.getIdeScanStatus();
+
+            const ideIds: CapturedSession['sourceIde'][] = isScanning
+                ? this.sessionService.getKnownIdeIds()
+                : [...grouped.keys()] as CapturedSession['sourceIde'][];
+
+            for (const ideId of ideIds) {
+                const sessions = grouped.get(ideId) || [];
+
+                // 非掃描中：只有當真的有 session 時才顯示該 IDE 資料夾
+                if (!isScanning && sessions.length === 0) {
+                    continue;
                 }
+
+                const label = ideId.charAt(0).toUpperCase() + ideId.slice(1);
+                const status = statusMap.get(ideId);
+                const statusText = isScanning
+                    ? `${status?.state ?? 'scanning'} • ${status?.found ?? 0}`
+                    : undefined;
+
+                items.push(new IDEParentItem(label, ideId, sessions.length, statusText));
             }
             return items;
         }

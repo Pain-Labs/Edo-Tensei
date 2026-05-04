@@ -2,6 +2,13 @@
 
 All notable changes to the "Edo Tensei" extension will be documented in this file.
 
+## [1.0.3] - Enhancement - 2026-05-04
+
+- **Multi-Root Workspace Support**: `Scan Sessions (Project)` now scans and merges sessions across all workspace folders (not just the first root).
+- **Copilot Multi-Root Fix**: Improved Copilot `workspaceStorage` matching for multi-root workspaces by resolving `.code-workspace` folder entries and using them for early filtering.
+- **Kiro Legacy Session Deduplication**: Deduplicated legacy Kiro `*.chat` sessions by `executionId` to prevent graph fragments from appearing as separate sessions.
+- **Scan UX Improvements**: Tree view now shows per-IDE scan status and found counts (e.g. `scanning/done/error • N`) during scans, and final results are sorted newest-first.
+
 ## [1.0.1] - Enhancement - 2026-05-02
 
 - **Agent Skill Generator**: Added `Generate Agent Skill` to emit `edo-tensei` skill/rule files for Claude Code, GitHub Copilot, Kiro, Antigravity, Cline, Gemini CLI, and Cursor.

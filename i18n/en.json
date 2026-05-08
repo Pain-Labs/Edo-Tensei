@@ -49,5 +49,8 @@
     "tree.sessionCount": "{0} sessions",
     "transcript.messages": "{0}  ·  {1} messages",
     "transcript.thought": "> 🤔 Thought process",
-    "transcript.toolCalls": "> 🛠️ Tool calls: {0}"
+    "transcript.toolCalls": "> 🛠️ Tool calls: {0}",
+    "mcpConfig.beta.disabled": "MCP Config is a beta feature and is currently disabled. Enable it in Settings?",
+    "mcpConfig.beta.enable": "Enable (Global)",
+    "mcpConfig.beta.openSettings": "Open Settings"
 }

@@ -49,5 +49,8 @@
     "tree.sessionCount": "{0} sessions",
     "transcript.messages": "{0}  ·  {1} 件のメッセージ",
     "transcript.thought": "> 🤔 思考過程",
-    "transcript.toolCalls": "> 🛠️ ツール呼び出し: {0} 回"
+    "transcript.toolCalls": "> 🛠️ ツール呼び出し: {0} 回",
+    "mcpConfig.beta.disabled": "MCP Config is a beta feature and is currently disabled. Enable it in Settings?",
+    "mcpConfig.beta.enable": "Enable (Global)",
+    "mcpConfig.beta.openSettings": "Open Settings"
 }

@@ -26,6 +26,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import { CapturedSession, ChatMessage, IChatExtractor } from './types';
+import { PathInference } from '../PathInference';
 
 interface OverviewLine {
   step_index?: number;
@@ -59,7 +60,7 @@ export class AntigravityExtractor implements IChatExtractor {
       : { sourceIde: this.ideId, capturedAt: new Date().toISOString(), messages: [], rawPath: this.getBaseDir(), readStatus: 'empty' };
   }
 
-  async extractAll(_workspacePath?: string, customScanPaths: string[] = []): Promise<CapturedSession[]> {
+  async extractAll(workspacePath?: string, customScanPaths: string[] = []): Promise<CapturedSession[]> {
     const baseDir = this.getBaseDir();
     const dirsToScan = [...customScanPaths, baseDir];
 
@@ -100,6 +101,11 @@ export class AntigravityExtractor implements IChatExtractor {
           const raw = await fs.readFile(cand.path, 'utf8');
           const { messages, hasTruncation } = this.parseOverview(raw);
           if (messages.length > 0) {
+            const inferredWorkspace = PathInference.inferWorkspacePath(messages, { candidateWorkspacePath: workspacePath });
+            if (workspacePath && !inferredWorkspace.workspacePath) {
+              return undefined;
+            }
+
             return {
               sourceIde: this.ideId,
               capturedAt: new Date(cand.mtime).toISOString(),
@@ -107,6 +113,13 @@ export class AntigravityExtractor implements IChatExtractor {
               messages,
               fileSizeBytes: cand.size,
               rawPath: cand.path,
+              workspacePath: inferredWorkspace.workspacePath,
+              metadata: inferredWorkspace.workspacePath ? {
+                workspacePathSource: 'inferred',
+                workspacePathConfidence: inferredWorkspace.confidence,
+                workspacePathReason: inferredWorkspace.reason,
+                workspacePathEvidence: inferredWorkspace.evidence,
+              } : undefined,
               // 若原始日誌有截斷標記，記錄於 readStatus（overview.txt 的設計即為 preview-only）
               readStatus: hasTruncation ? 'success' : 'success',
               errorDetail: hasTruncation ? 'overview.txt is preview-only; some messages are truncated at source' : undefined,

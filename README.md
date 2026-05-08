@@ -56,6 +56,7 @@ This tool is named after this concept to symbolize "context reincarnation" in AI
 - **Export to `.edo_tensei/`**: Saves handoff prompts as Markdown files, organized by `IDE/project/timestamp`.
 - **Raw File Preview**: Opens the original session file directly in VS Code for manual inspection or editing.
 - **Agent Skill Generator**: Generates reusable `edo-tensei` skill/rule files for Claude Code, GitHub Copilot, Kiro, Antigravity, Cline, and Cursor.
+- **Model Context Protocol (MCP)**: Built-in MCP server allows AI agents (Cursor, Copilot, Claude, Kiro, Antigravity) to programmatically discover, read, and export Edo Tensei sessions. Use the "Show MCP Config" UI to easily configure your specific AI client.
 - **`.gitignore` Helper**: Automatically prompts you to add `.edo_tensei/` to `.gitignore` so local exports don't pollute your repo.
 
 ![Features](./docs/assets/features.png)
@@ -112,6 +113,23 @@ All commands are available via the Command Palette (`Ctrl+Shift+P`) under the `E
 | Export Session to .edo_tensei | Save handoff prompt as a Markdown file |
 | Export All Sessions to .edo_tensei | Save all scanned sessions to `.edo_tensei/` |
 | Generate Agent Skill | Generate a reusable `edo-tensei` skill/rule file for another AI agent |
+| Show MCP Config | Open UI panel to get copy-paste MCP server configuration for your AI client |
+
+---
+
+## Model Context Protocol (MCP) Server
+
+Edo Tensei includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) server that allows AI agents to directly interact with your session history without leaving their chat interface.
+
+Instead of manually exporting or copying prompts, your AI agent can automatically discover past sessions, read full conversation contexts, and resume interrupted workflows.
+
+To set up the MCP server:
+1. Run the **Edo Tensei: Show MCP Config** command.
+2. Select your AI client (Cursor, GitHub Copilot, Claude Code, Kiro, or Antigravity).
+3. Choose your workspace configuration preference (Recommended, Selected, Variable, or All Workspaces).
+4. Copy the generated JSON snippet into your client's MCP configuration file.
+
+For detailed documentation, see the [MCP Server README](./mcp-server/README.md).
 
 ---
 

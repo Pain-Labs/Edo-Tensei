@@ -2,6 +2,14 @@
 
 All notable changes to the "Edo Tensei" extension will be documented in this file.
 
+## [1.0.4] - Feature - 2026-05-08
+
+- **Model Context Protocol (MCP) Server (Beta)**: Introduced a built-in MCP server that enables AI agents (Cursor, Copilot, Claude, Kiro, Antigravity) to programmatically discover, read, and export Edo Tensei sessions.
+- **MCP Config Panel (Beta)**: Added a new "Edo Tensei: Show MCP Config" command and UI panel to provide one-click configuration snippets tailored for specific AI clients and workspace settings.
+- **Core Search Engine Upgrade**: Refactored session scanning logic into a standalone `SessionSearchEngine` with advanced `TimeFilter` and `PathInference` capabilities to support robust MCP queries.
+- **Extractor Enhancements**: Improved parsing logic for `Antigravity` and `Kiro` to handle edge cases and log anomalies more effectively.
+- **i18n Translations**: Updated localizations across five languages to cover the new MCP interface and commands.
+
 ## [1.0.3] - Enhancement - 2026-05-04
 
 - **Multi-Root Workspace Support**: `Scan Sessions (Project)` now scans and merges sessions across all workspace folders (not just the first root).

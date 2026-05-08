@@ -49,5 +49,8 @@
     "tree.sessionCount": "{0} sessions",
     "transcript.messages": "{0}  ·  {1}개 메시지",
     "transcript.thought": "> 🤔 사고 과정",
-    "transcript.toolCalls": "> 🛠️ 도구 호출: {0}회"
+    "transcript.toolCalls": "> 🛠️ 도구 호출: {0}회",
+    "mcpConfig.beta.disabled": "MCP Config is a beta feature and is currently disabled. Enable it in Settings?",
+    "mcpConfig.beta.enable": "Enable (Global)",
+    "mcpConfig.beta.openSettings": "Open Settings"
 }

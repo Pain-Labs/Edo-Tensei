@@ -56,6 +56,7 @@
 - **`.edo_tensei/`로 내보내기**: 인계 프롬프트를 `IDE/프로젝트/타임스탬프` 형태로 정리된 Markdown 파일로 저장합니다.
 - **원본 파일 미리보기**: VS Code에서 직접 원본 세션 파일을 열어 검사하거나 편집할 수 있습니다.
 - **Agent Skill Generator**: Claude Code, GitHub Copilot, Kiro, Antigravity, Cline, Gemini CLI, Cursor용으로 재사용 가능한 `edo-tensei` skill/rule 파일을 생성합니다.
+- **Model Context Protocol (MCP)**: 내장된 MCP 서버를 통해 AI 에이전트(Cursor, Copilot, Claude, Kiro, Antigravity)가 프로그래밍 방식으로 Edo Tensei 세션을 검색, 읽기 및 내보낼 수 있습니다. "Show MCP Config" UI를 사용하여 특정 AI에 맞는 구성을 쉽게 생성할 수 있습니다.
 - **`.gitignore` 헬퍼**: 처음 사용 시 `.edo_tensei/`를 `.gitignore`에 추가하도록 자동으로 안내합니다.
 
 ![주요 기능](./assets/features.png)
@@ -112,6 +113,23 @@ VS Code 설정에서 `edoTensei`를 검색합니다.
 | Export Session to .edo_tensei | 인계 프롬프트를 Markdown 파일로 저장 |
 | Export All Sessions to .edo_tensei | 스캔된 모든 세션을 `.edo_tensei/`에 저장 |
 | Generate Agent Skill | 다른 AI 도구용으로 재사용 가능한 `edo-tensei` skill/rule 파일 생성 |
+| Show MCP Config | AI 에이전트에 복사하여 붙여넣을 수 있는 MCP 서버 구성을 얻기 위한 UI 패널 열기 |
+
+---
+
+## Model Context Protocol (MCP) Server
+
+Edo Tensei에는 [Model Context Protocol](https://modelcontextprotocol.io/) 서버가 내장되어 있어 AI 에이전트가 채팅 인터페이스를 벗어나지 않고도 세션 기록과 직접 상호작용할 수 있습니다.
+
+수동으로 프롬프트를 내보내거나 복사할 필요 없이, AI 에이전트가 과거 세션을 자동으로 찾고, 전체 대화 컨텍스트를 읽으며, 중단된 워크플로를 원활하게 재개할 수 있습니다.
+
+MCP 서버 설정 방법:
+1. **Edo Tensei: Show MCP Config** 명령을 실행합니다.
+2. AI 클라이언트(Cursor, GitHub Copilot, Claude Code, Kiro 또는 Antigravity)를 선택합니다.
+3. 워크스페이스 구성 설정(Recommended, Selected, Variable 또는 All Workspaces)을 선택합니다.
+4. 생성된 JSON 스니펫을 AI 클라이언트의 MCP 구성 파일에 복사합니다.
+
+자세한 내용은 [MCP Server README](../mcp-server/README.md)를 참조하세요.
 
 ---
 

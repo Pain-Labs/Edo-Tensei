@@ -7,6 +7,7 @@ import { readFile } from 'fs/promises';
 import { SessionHandoffService } from './core/SessionHandoffService';
 import { SkillGenerator } from './core/SkillGenerator';
 import { SessionHandoffProvider, SessionItem } from './ui/SessionHandoffProvider';
+import { McpConfigPanel } from './ui/McpConfigPanel';
 import { I18n } from './i18n';
 
 const execFileAsync = promisify(execFile);
@@ -714,6 +715,34 @@ export async function activate(context: vscode.ExtensionContext) {
             const prompt = sessionService.buildContextPrompt(item.session);
             await vscode.env.clipboard.writeText(prompt);
             vscode.window.showInformationMessage(I18n.getMessage('session.copiedContext'));
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('edoTensei.showMcpConfig', async () => {
+            const config = vscode.workspace.getConfiguration('edoTensei');
+            const enabled = config.get<boolean>('mcpConfig.enabled', false);
+            if (!enabled) {
+                const actionEnable = I18n.getMessage('mcpConfig.beta.enable');
+                const actionOpenSettings = I18n.getMessage('mcpConfig.beta.openSettings');
+                const picked = await vscode.window.showInformationMessage(
+                    I18n.getMessage('mcpConfig.beta.disabled'),
+                    actionEnable,
+                    actionOpenSettings
+                );
+                if (picked === actionEnable) {
+                    await config.update('mcpConfig.enabled', true, vscode.ConfigurationTarget.Global);
+                    await McpConfigPanel.show(context);
+                } else if (picked === actionOpenSettings) {
+                    await vscode.commands.executeCommand(
+                        'workbench.action.openSettings',
+                        '@ext:Pain-Labs.edo-tensei edoTensei.mcpConfig.enabled'
+                    );
+                }
+                return;
+            }
+
+            await McpConfigPanel.show(context);
         })
     );
 }

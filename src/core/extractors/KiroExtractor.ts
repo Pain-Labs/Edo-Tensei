@@ -35,6 +35,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as vscode from 'vscode';
 import { CapturedSession, ChatMessage, IChatExtractor } from './types';
+import { PathInference } from '../PathInference';
 
 // ── 型別定義 ─────────────────────────────────────────────────────
 
@@ -214,7 +215,24 @@ export class KiroExtractor implements IChatExtractor {
     return results;
   }
 
-  private inferLegacyWorkspacePath(raw: string, workspacePath: string): string | undefined {
+  private inferLegacyWorkspacePath(raw: string, messages: ChatMessage[], workspacePath?: string): { workspacePath?: string; metadata?: Record<string, any> } {
+    const inferred = PathInference.inferWorkspacePath(messages, { candidateWorkspacePath: workspacePath });
+    if (inferred.workspacePath) {
+      return {
+        workspacePath: inferred.workspacePath,
+        metadata: {
+          workspacePathSource: 'inferred',
+          workspacePathConfidence: inferred.confidence,
+          workspacePathReason: inferred.reason,
+          workspacePathEvidence: inferred.evidence,
+        },
+      };
+    }
+
+    if (!workspacePath) {
+      return {};
+    }
+
     try {
       const obj = JSON.parse(raw) as any;
       const contextArr = Array.isArray(obj?.context) ? obj.context : [];
@@ -223,7 +241,7 @@ export class KiroExtractor implements IChatExtractor {
         .find((t: string) => t.includes('<fileTree>'));
 
       if (!fileTreeText) {
-        return undefined;
+        return {};
       }
 
       const names = new Set<string>();
@@ -231,10 +249,6 @@ export class KiroExtractor implements IChatExtractor {
         const name = m[1];
         if (!name || name.includes('/')) { continue; }
         names.add(name);
-      }
-
-      if (names.size === 0) {
-        return undefined;
       }
 
       let hits = 0;
@@ -247,14 +261,21 @@ export class KiroExtractor implements IChatExtractor {
           // ignore
         }
         if (hits >= 3) {
-          return workspacePath;
+          return {
+            workspacePath,
+            metadata: {
+              workspacePathSource: 'inferred',
+              workspacePathConfidence: 0.8,
+              workspacePathReason: 'legacy-file-tree-evidence',
+            },
+          };
         }
       }
-
-      return undefined;
     } catch {
-      return undefined;
+      // ignore
     }
+
+    return {};
   }
 
   private getLegacyExecutionId(raw: string): string | undefined {
@@ -291,25 +312,22 @@ export class KiroExtractor implements IChatExtractor {
                   const fsStat = await fs.stat(filePath);
                   const raw = await fs.readFile(filePath, 'utf8');
 
-                  const executionId = this.getLegacyExecutionId(raw);
-
-                  let resolvedWorkspacePath: string | undefined;
-                  if (workspacePath) {
-                    resolvedWorkspacePath = this.inferLegacyWorkspacePath(raw, workspacePath);
-                    if (!resolvedWorkspacePath) {
-                      return undefined;
-                    }
-                  }
-
                   const messages = this.parseLegacyKiroChat(raw);
                   if (messages.length > 0) {
+                    const executionId = this.getLegacyExecutionId(raw);
+                    const inferredWorkspace = this.inferLegacyWorkspacePath(raw, messages, workspacePath);
+                    if (workspacePath && !inferredWorkspace.workspacePath) {
+                      return undefined;
+                    }
+
                     const session: CapturedSession = {
                       sourceIde: this.ideId,
                       capturedAt: new Date(fsStat.mtimeMs).toISOString(),
                       sessionId: executionId ?? f.replace(/\.chat$/i, ''),
                       messages,
                       rawPath: filePath,
-                      workspacePath: resolvedWorkspacePath,
+                      workspacePath: inferredWorkspace.workspacePath,
+                      metadata: inferredWorkspace.metadata,
                       readStatus: 'success',
                     };
 

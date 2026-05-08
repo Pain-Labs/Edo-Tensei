@@ -24,5 +24,7 @@
     "command.copyContextPrompt.title": "Copy Context Prompt",
     "command.openSettings.title": "Edo Tensei: Settings",
     "command.generateAgentSkill.title": "Generate Agent Skill",
-    "config.lazyLoadMessages.description": "Enable lazy loading: only scan the first message during Scan; full content loads on hover/preview. Disable to restore eager loading for debugging comparison."
+    "command.showMcpConfig.title": "Show MCP Config",
+    "config.lazyLoadMessages.description": "Enable lazy loading: only scan the first message during Scan; full content loads on hover/preview. Disable to restore eager loading for debugging comparison.",
+    "config.mcpConfig.enabled.description": "Enable MCP Config UI (beta). When disabled, the MCP button is hidden and the command is disabled."
 }

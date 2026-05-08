@@ -24,5 +24,7 @@
     "command.copyContextPrompt.title": "Context Prompt をコピー",
     "command.openSettings.title": "Edo Tensei: 設定",
     "command.generateAgentSkill.title": "Agent Skill を生成",
-    "config.lazyLoadMessages.description": "遅延読み込みを有効化：スキャン時は最初のメッセージのみ読み取り、ホバー・プレビュー時に全内容を読み込みます。オフにするとデバッグ対照用の即時読み込みモードに戻ります。"
+    "command.showMcpConfig.title": "MCP 設定を表示",
+    "config.lazyLoadMessages.description": "遅延読み込みを有効化：スキャン時は最初のメッセージのみ読み取り、ホバー・プレビュー時に全内容を読み込みます。オフにするとデバッグ対照用の即時読み込みモードに戻ります。",
+    "config.mcpConfig.enabled.description": "Enable MCP Config UI (beta). When disabled, the MCP button is hidden and the command is disabled."
 }

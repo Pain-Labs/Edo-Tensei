@@ -4,7 +4,7 @@
 ---
 # Edo Tensei – AI Session Handoff Manager
 
-Edo Tensei is a VS Code extension that extracts local AI session histories from multiple IDEs and packages them into a ready-to-paste handoff prompt. When an AI quota or session limit runs out mid-task, switching IDEs normally means losing all conversation history. Edo Tensei makes the handoff one click.
+Edo Tensei is a VS Code extension that extracts local AI session histories from multiple IDEs and packages them into a ready-to-paste handoff prompt. When an AI quota or session limit runs out mid-task, switching IDEs normally means losing all conversation history. Edo Tensei makes the handoff one click, or entirely automatic via its built-in Model Context Protocol (MCP) server.
 
 ## Supported IDEs
 
@@ -26,6 +26,7 @@ Edo Tensei is a VS Code extension that extracts local AI session histories from 
   - Path mode (default): Outputs session file path + per-IDE reading guide. Token-efficient.
   - Full-text mode: Embeds the complete conversation.
 - One-Click Resurrect: Click any session to copy a ready-to-paste handoff prompt. Right-click for more.
+- MCP Server: Built-in Model Context Protocol server lets AI agents programmatically discover, read, and export sessions.
 - Agent Skill Generator: Generates structured edo-tensei skill/rule files for 7+ AI tools.
 - Export to .edo_tensei/: Saves prompts as Markdown, organized by IDE/project/timestamp.
 - Raw File Preview: Opens original session file in VS Code.
@@ -48,6 +49,7 @@ Edo Tensei is a VS Code extension that extracts local AI session histories from 
 - Export Session to .edo_tensei: Save as Markdown file
 - Export All Sessions to .edo_tensei: Save all scanned sessions
 - Generate Agent Skill: Create reusable edo-tensei skill/rule files for other AI tools
+- Show MCP Config: Open UI panel to get copy-paste MCP configuration for your AI client
 
 ## Privacy
 
@@ -66,7 +68,13 @@ The extension is structured as:
 
 - extension.ts: Entry point, command registration, .gitignore helper, file system watcher
 - core/SessionHandoffService.ts: Orchestrates all extractors in parallel, caches results, builds handoff prompts
+- core/SessionSearchEngine.ts: Advanced session filtering with TimeFilter and PathInference
 - core/SkillGenerator.ts: Generates IDE-specific SOP files (skills/rules) for context-aware handoff
+- core/extractors/types.ts: IChatExtractor interface, CapturedSession and ChatMessage types
+- core/extractors/*Extractor.ts: One extractor per IDE, all implement IChatExtractor
+- ui/SessionHandoffProvider.ts: TreeDataProvider for the Activity Bar sidebar
+- ui/McpConfigPanel.ts: Webview UI for MCP configuration
+- mcp-server/: Standalone MCP server implementation using @modelcontextprotocol/sdk
 - core/extractors/types.ts: IChatExtractor interface, CapturedSession and ChatMessage types
 - core/extractors/*Extractor.ts: One extractor per IDE, all implement IChatExtractor
 - ui/SessionHandoffProvider.ts: TreeDataProvider for the Activity Bar sidebar
@@ -131,6 +139,11 @@ vsce publish
 
 ---
 ## Changelog
+
+### [1.0.4] - 2026-05-08
+- MCP Server: Built-in server for programmatically discovering and reading sessions.
+- MCP Config Panel: UI to generate copy-paste MCP configuration for various AI clients.
+- Search Engine: Refactored search logic with TimeFilter and PathInference.
 
 ### [1.0.1] - 2026-05-02
 - Agent Skill Generator: Generates structured SOPs for Claude Code, Kiro, Cursor, Cline, Gemini CLI, etc.

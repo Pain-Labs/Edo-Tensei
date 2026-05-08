@@ -24,5 +24,7 @@
     "command.copyContextPrompt.title": "複製 Context Prompt",
     "command.openSettings.title": "Edo Tensei：設定",
     "command.generateAgentSkill.title": "產生 Agent Skill",
-    "config.lazyLoadMessages.description": "啟用懶加載：掃描時只讀取第一條訊息，滑鼠移上或預覽時才載入完整內容。關閉可還原即時載入模式，方便除錯對照。"
+    "command.showMcpConfig.title": "顯示 MCP 設定",
+    "config.lazyLoadMessages.description": "啟用懶加載：掃描時只讀取第一條訊息，滑鼠移上或預覽時才載入完整內容。關閉可還原即時載入模式，方便除錯對照。",
+    "config.mcpConfig.enabled.description": "啟用 MCP 設定 UI（Beta）。關閉時會隱藏 MCP 按鈕並停用指令。"
 }

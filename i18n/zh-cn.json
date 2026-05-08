@@ -49,5 +49,8 @@
     "tree.sessionCount": "{0} sessions",
     "transcript.messages": "{0}  ·  {1} 条消息",
     "transcript.thought": "> 🤔 思考过程",
-    "transcript.toolCalls": "> 🛠️ 工具调用：{0} 次"
+    "transcript.toolCalls": "> 🛠️ 工具调用：{0} 次",
+    "mcpConfig.beta.disabled": "MCP 配置目前为 Beta 功能且默认关闭。要在设置中启用吗？",
+    "mcpConfig.beta.enable": "启用（全局）",
+    "mcpConfig.beta.openSettings": "打开设置"
 }

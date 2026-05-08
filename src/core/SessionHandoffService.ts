@@ -10,6 +10,7 @@ import { AntigravityExtractor } from './extractors/AntigravityExtractor';
 import { KiroExtractor } from './extractors/KiroExtractor';
 import { ClaudeExtractor } from './extractors/ClaudeExtractor';
 import { CodexExtractor } from './extractors/CodexExtractor';
+import { SessionSearchEngine, SessionSearchMatch, SessionSearchQuery } from './SessionSearchEngine';
 
 export class SessionHandoffService {
     private extractors: IChatExtractor[];
@@ -17,6 +18,7 @@ export class SessionHandoffService {
     private allSessions: CapturedSession[] = [];
     private scanMode: 'project' | 'all' = 'project';
     private scanning = false;
+    private readonly searchEngine = new SessionSearchEngine();
     private ideScanStatus = new Map<CapturedSession['sourceIde'], { state: 'idle' | 'scanning' | 'done' | 'error'; found: number }>();
     private _onDidUpdateSessions = new vscode.EventEmitter<void>();
     public readonly onDidUpdateSessions = this._onDidUpdateSessions.event;
@@ -190,6 +192,10 @@ export class SessionHandoffService {
 
     getScanMode(): 'project' | 'all' {
         return this.scanMode;
+    }
+
+    public searchSessions(query: SessionSearchQuery): SessionSearchMatch[] {
+        return this.searchEngine.search(this.getSessions(), query);
     }
 
     private normalizePath(p: string): string {

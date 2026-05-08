@@ -56,6 +56,7 @@ AI 额度在任务进行到一半时用完，切换到另一款 IDE 不应该意
 - **导出到 `.edo_tensei/`**：将交接 Prompt 存为 Markdown 文件，以 `IDE/项目/时间戳` 结构整理。
 - **原始文件预览**：直接在 VS Code 中打开原始会话文件供查阅或手动编辑。
 - **Agent Skill 生成器**：为 Claude Code、GitHub Copilot、Kiro、Antigravity、Cline、Gemini CLI 与 Cursor 生成可复用的 `edo-tensei` skill/rule 文件。
+- **Model Context Protocol (MCP)**：内置 MCP 服务器，允许 AI Agent (Cursor, Copilot, Claude, Kiro, Antigravity) 以编程方式发现、读取和导出 Edo Tensei 会话。通过 "Show MCP Config" UI 即可轻松为特定 AI 生成配置。
 - **`.gitignore` 助手**：首次导出时自动提示加入 `.edo_tensei/`，避免误提交到版本库。
 
 ![核心功能](./assets/features.png)
@@ -112,6 +113,23 @@ AI 额度在任务进行到一半时用完，切换到另一款 IDE 不应该意
 | Export Session to .edo_tensei | 将交接 Prompt 保存为 Markdown 文件 |
 | Export All Sessions to .edo_tensei | 将所有已扫描的会话导出 |
 | Generate Agent Skill | 为其他 AI 工具生成可复用的 `edo-tensei` skill/rule 文件 |
+| Show MCP Config | 打开 UI 面板，获取适用于你的 AI 代理的 MCP 服务器配置文件（可直接复制粘贴） |
+
+---
+
+## Model Context Protocol (MCP) Server
+
+Edo Tensei 内置了 [Model Context Protocol](https://modelcontextprotocol.io/) 服务器，能让 AI Agent 在不离开对话界面的情况下，直接与你的历史记录进行交互。
+
+AI Agent 不需要你手动导出或复制交接 Prompt，而是能自动探索过去的会话，读取完整的对话上下文，并无缝接续中断的工作流。
+
+如何设置 MCP 服务器：
+1. 运行 **Edo Tensei: Show MCP Config** 命令。
+2. 选择你的 AI 工具 (Cursor, GitHub Copilot, Claude Code, Kiro 或 Antigravity)。
+3. 选择你的 Workspace 设置偏好 (Recommended, Selected, Variable 或 All Workspaces)。
+4. 复制生成的 JSON 片段，粘贴进 AI 工具的 MCP 配置文件中。
+
+详细文档请参阅 [MCP Server README](../mcp-server/README.md)。
 
 ---
 

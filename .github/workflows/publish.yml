@@ -8,6 +8,8 @@ on:
       - main
     paths:
       - 'package.json' # 只有版本號更新時才觸發，避免浪費資源
+permissions:
+  contents: read
 
 jobs:
   publish:

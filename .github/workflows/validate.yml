@@ -7,6 +7,8 @@ on:
   push:
     branches-ignore:
       - main
+permissions:
+  contents: read
 
 jobs:
   validate:
@@ -33,7 +35,7 @@ jobs:
         run: |
           git fetch origin "${{ github.base_ref }}"
           changed_files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
-          release_files=$(echo "$changed_files" | grep -E '^(src/|mcp-server/src/|i18n/|package\.json|package-lock\.json|package\.nls.*\.json|README\.md|CHANGELOG\.md|docs/README|docs/assets/|\.vscodeignore|\.github/workflows/)' || true)
+          release_files=$(echo "$changed_files" | grep -E '^(src/|mcp-server/src/|i18n/|package\.json|package-lock\.json|package\.nls.*\.json|README\.md|CHANGELOG\.md|docs/README|docs/assets/|\.vscodeignore)' || true)
           if [ -z "$release_files" ]; then
             echo "No release-relevant files changed; version bump is not required."
             exit 0
@@ -60,7 +62,7 @@ jobs:
 
       - name: Validate Open VSX manifest compatibility
         run: |
-          manifest_display_name=$(unzip -p edo-tensei.vsix extension.vsixmanifest | sed -n 's/.*<DisplayName>\(.*\)<\/DisplayName>.*/\1/p')
+          manifest_display_name=$(unzip -p edo-tensei.vsix extension.vsixmanifest | sed -n 's/.*<DisplayName>\(.*\)<\/DisplayName>.*/\1/p' | sed 's/\&amp;/\&/g')
           package_display_name=$(node -p "require('./package.json').displayName")
           if [ "$manifest_display_name" != "$package_display_name" ]; then
             echo "Display name mismatch: extension.vsixmanifest has '$manifest_display_name', package.json has '$package_display_name'."

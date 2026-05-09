@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -29,7 +31,7 @@ jobs:
       - name: Validate version bump
         if: github.event_name == 'pull_request'
         run: |
-          git fetch origin "${{ github.base_ref }}" --depth=1
+          git fetch origin "${{ github.base_ref }}"
           changed_files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
           release_files=$(echo "$changed_files" | grep -E '^(src/|mcp-server/src/|i18n/|package\.json|package-lock\.json|package\.nls.*\.json|README\.md|CHANGELOG\.md|docs/README|docs/assets/|\.vscodeignore|\.github/workflows/)' || true)
           if [ -z "$release_files" ]; then

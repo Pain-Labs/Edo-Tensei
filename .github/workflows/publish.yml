@@ -2,6 +2,7 @@ name: Publish Extension
 
 # 設定觸發條件：當程式碼 push 到 main 分支，且 package.json 檔案有變動時
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -20,7 +21,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies

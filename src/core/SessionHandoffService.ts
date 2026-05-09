@@ -109,7 +109,9 @@ export class SessionHandoffService {
                         const merged = new Map<string, CapturedSession>();
                         for (const list of perRoot) {
                             for (const s of list) {
-                                merged.set(s.rawPath, s);
+                                if (!merged.has(s.rawPath)) {
+                                    merged.set(s.rawPath, s);
+                                }
                             }
                         }
                         sessions = [...merged.values()];

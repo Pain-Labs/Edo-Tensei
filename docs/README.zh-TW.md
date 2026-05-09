@@ -6,7 +6,7 @@
 
 繁體中文 | **[English](../README.md)** | [日本語](README.ja.md) | [한국어](README.ko.md) | [简体中文](README.zh-CN.md)
 
-![Edo Tensei – AI Session 交接管理器](assets/hero_banner.png)
+![Edo Tensei – AI Session 交接管理器](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/hero_banner.png)
 
 ---
 
@@ -26,7 +26,7 @@ AI 額度在任務進行到一半時用完，切換到另一款 IDE 不應該代
 - **祭品/媒介 (The Vessel)**：本工具提取並封裝的 **Handoff Prompt**。
 - **轉生 (The Reincarnation)**：將 Prompt 貼入新 IDE，讓原本「死去」的開發思路在新的 AI 實體中完美重生。
 
-![流程示意圖](./assets/workflow_guide.png)
+![流程示意圖](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/workflow_guide.png)
 
 ---
 
@@ -59,13 +59,13 @@ AI 額度在任務進行到一半時用完，切換到另一款 IDE 不應該代
 - **Model Context Protocol (MCP)**：內建 MCP 伺服器，允許 AI Agent (Cursor, Copilot, Claude, Kiro, Antigravity) 以程式化方式探索、讀取與匯出 Edo Tensei sessions。透過 "Show MCP Config" UI 即可輕鬆為特定 AI 產生配置。
 - **`.gitignore` 小幫手**：首次匯出時自動提示加入 `.edo_tensei/`，避免誤提交到版本庫。
 
-![核心功能](./assets/features.png)
+![核心功能](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/features.png)
 
 ---
 
 ## 快速開始
 
-![Operation Guide](assets/ui_operation_guide.png)
+![Operation Guide](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/ui_operation_guide.png)
 
 1. 點擊 VS Code Activity Bar 的 **Edo Tensei** 圖示（裂痕資料夾圖示）開啟側邊欄。
 2. 點擊 **Scan (Current Project)** 或 **Scan (All Projects)** 尋找對話紀錄。

@@ -6,7 +6,7 @@
 
 [繁體中文](README.zh-TW.md) | [English](../README.md) | [한국어](README.ko.md) | [简体中文](README.zh-CN.md) | 日本語
 
-![Edo Tensei – AI セッション引き継ぎマネージャー](assets/hero_banner.png)
+![Edo Tensei – AI セッション引き継ぎマネージャー](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/hero_banner.png)
 
 ---
 
@@ -26,7 +26,7 @@ AIの使用枠がタスクの途中で切れても、別のIDEに切り替える
 - **器/媒介 (The Vessel)**：本ツールが抽出・パッケージ化した **引き継ぎプロンプト (Handoff Prompt)**。
 - **転生 (The Reincarnation)**：プロンプトを新しいIDEに貼り付けることで、本来「死んだ」はずの開発コンテキストを新しいAI実体として完璧に蘇らせます。
 
-![ワークフロー](./assets/workflow_guide.png)
+![ワークフロー](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/workflow_guide.png)
 
 ---
 
@@ -59,13 +59,13 @@ AIの使用枠がタスクの途中で切れても、別のIDEに切り替える
 - **Model Context Protocol (MCP)**：内蔵のMCPサーバーにより、AIエージェント（Cursor、Copilot、Claude、Kiro、Antigravity）がプログラムを通じてEdo Tenseiのセッションを検索、読み取り、エクスポートできるようになります。"Show MCP Config" UIを使用すれば、特定のAI向けの構成を簡単に生成できます。
 - **`.gitignore`ヘルパー**：初回使用時に`.edo_tensei/`を`.gitignore`に追加するよう自動的に案内します。
 
-![機能一覧](./assets/features.png)
+![機能一覧](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/features.png)
 
 ---
 
 ## クイックスタート
 
-![Operation Guide](assets/ui_operation_guide.png)
+![Operation Guide](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/ui_operation_guide.png)
 
 1. VS CodeのアクティビティバーにあるEdo Tenseiビュー（ひび割れたフォルダーアイコン）を開きます。
 2. **Scan (Current Project)** または **Scan (All Projects)** をクリックして会話履歴を検索します。

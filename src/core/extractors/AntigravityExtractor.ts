@@ -66,7 +66,7 @@ export class AntigravityExtractor implements IChatExtractor {
 
     // Step 1: Collect all candidate overview.txt paths in parallel across all scan dirs
     const candidateArrays = await Promise.all(
-      dirsToScan.map(async (scanDir): Promise<Array<{ path: string; uuid: string; mtime: number }>> => {
+      dirsToScan.map(async (scanDir): Promise<Array<{ path: string; uuid: string; mtime: number; size: number }>> => {
         try {
           await fs.access(scanDir);
           const brainIds = await fs.readdir(scanDir);

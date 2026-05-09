@@ -28,3 +28,5 @@ docs/brand/**
 docs/alternatives/**
 scripts/**
 docs/roadmap/**
+docs/alternatives/repo/**
+test/fixtures/

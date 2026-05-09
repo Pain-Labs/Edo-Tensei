@@ -66,8 +66,15 @@ export class CopilotExtractor implements IChatExtractor {
 
   private async tryResolveWorkspaceFileFolders(workspaceFilePath: string): Promise<string[]> {
     try {
-      const raw = await fs.readFile(workspaceFilePath, 'utf8');
-      const parsed = JSON.parse(raw) as any;
+      const raw = (await fs.readFile(workspaceFilePath, 'utf8')).replace(/^﻿/, '');
+      // .code-workspace 通常是 JSONC（含 // 註解），標準 JSON.parse 會失敗
+      let parsed: any;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        const stripped = raw.replace(/\/\/[^\n]*/g, '');
+        parsed = JSON.parse(stripped);
+      }
       const baseDir = path.dirname(workspaceFilePath);
       const folders = Array.isArray(parsed?.folders) ? parsed.folders : [];
 
@@ -142,7 +149,7 @@ export class CopilotExtractor implements IChatExtractor {
           for (const { name } of stats.slice(0, 30)) {
             const wsJsonPath = path.join(workspaceStorageDir, name, 'workspace.json');
             try {
-              const content = await fs.readFile(wsJsonPath, 'utf8');
+              const content = (await fs.readFile(wsJsonPath, 'utf8')).replace(/^﻿/, '');
               const wsJson = JSON.parse(content);
               const folderUri = wsJson.folder || wsJson.workspace;
               if (folderUri && typeof folderUri === 'string') {
@@ -183,11 +190,19 @@ export class CopilotExtractor implements IChatExtractor {
     // 2. Scan all workspace storage folders across all VS Code data dirs
     for (const workspaceStorageDir of workspaceStorageDirs) {
       try {
-        const entries = await fs.readdir(workspaceStorageDir);
+        const rawEntries = await fs.readdir(workspaceStorageDir);
 
-        // Process all workspace entries in parallel
-        const entryResults = await Promise.all(
-          entries.map(async (entry): Promise<CapturedSession[]> => {
+        // 依 mtime 排序（最近修改的先處理），讓新 session 優先出現
+        const entriesSorted = await this.listDirsByMtime(workspaceStorageDir, rawEntries);
+        const entries = entriesSorted.map(e => e.name);
+
+        // 限制外層並行數，避免同時開啟過多 fd 導致 I/O 互搶
+        const ENTRY_CONCURRENCY = 8;
+        const allEntryResults: CapturedSession[][] = [];
+        for (let i = 0; i < entries.length; i += ENTRY_CONCURRENCY) {
+          const chunk = entries.slice(i, i + ENTRY_CONCURRENCY);
+          const chunkResults = await Promise.all(
+            chunk.map(async (entry): Promise<CapturedSession[]> => {
             const entryDir = path.join(workspaceStorageDir, entry);
             let resolvedWsPath: string | undefined;
 
@@ -195,7 +210,7 @@ export class CopilotExtractor implements IChatExtractor {
 
             try {
               const wsJsonPath = path.join(entryDir, 'workspace.json');
-              const content = await fs.readFile(wsJsonPath, 'utf8');
+              const content = (await fs.readFile(wsJsonPath, 'utf8')).replace(/^﻿/, '');
               const wsJson = JSON.parse(content);
               const folderUri = wsJson.folder || wsJson.workspace;
               if (folderUri && typeof folderUri === 'string') {
@@ -236,9 +251,11 @@ export class CopilotExtractor implements IChatExtractor {
             }
             return this.extractFromDir(chatSessionsDir, wsPathForSession);
           })
-        );
+          );
+          allEntryResults.push(...chunkResults);
+        }
 
-        for (const sessions of entryResults) {
+        for (const sessions of allEntryResults) {
           allSessions.push(...sessions);
         }
       } catch { /* skip */ }
@@ -395,14 +412,22 @@ export class CopilotExtractor implements IChatExtractor {
           }
         }
 
-        // 新版格式：kind=2 且 k="requests"，取第一條 user 訊息
-        if (parsed.kind === 2 && parsed.k === 'requests' && Array.isArray(parsed.v)) {
+        // 新版格式：kind=2 且 k="requests" 或 k=["requests"]，取第一條 user 訊息
+        const kIsTopLevelRequests = parsed.k === 'requests' ||
+          (Array.isArray(parsed.k) && parsed.k.length === 1 && parsed.k[0] === 'requests');
+        if (parsed.kind === 2 && kIsTopLevelRequests && Array.isArray(parsed.v)) {
           const reqs = parsed.v as CopilotRequest[];
           if (!newFormatFirstMsg && reqs.length > 0) {
             const firstText = reqs[0]?.message?.text?.trim();
             if (firstText) {
               newFormatFirstMsg = { role: 'user', content: firstText.slice(0, 300) };
             }
+          }
+          // 新版格式已取得所有需要的資訊，提早結束避免讀完整個大檔案
+          if (isNewFormat && newFormatSessionId && newFormatFirstMsg) {
+            rl.close();
+            stream.destroy();
+            break;
           }
           continue;
         }
@@ -512,8 +537,12 @@ export class CopilotExtractor implements IChatExtractor {
    */
   private async loadJsonlFull(filePath: string, targetSessionId: string | undefined): Promise<ChatMessage[]> {
     let bestSession: CopilotSession | undefined;
-    // 新版格式：從 kind=2 k="requests" 行收集 requests（取最後一個完整陣列）
-    let newFormatRequests: CopilotRequest[] | undefined;
+    // 新版格式：每個 k=["requests"] 行只含 1 筆新 request（追加模式，非取代整個陣列）
+    // 必須把所有 block 串接才能還原完整對話
+    const newFormatRequests: CopilotRequest[] = [];
+    // k=["requests", N, "response"] 行是第 N 輪的 response patch，保留最後一次
+    const responsePatches = new Map<number, CopilotMessagePart[]>();
+    let isNewFormat = false;
 
     const stream = fsSync.createReadStream(filePath, { encoding: 'utf8', highWaterMark: 65536 });
     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
@@ -524,9 +553,26 @@ export class CopilotExtractor implements IChatExtractor {
       try {
         const parsed = JSON.parse(trimmed) as CopilotJsonlLine;
 
-        // 新版格式：kind=2 且 k="requests"，v 是整個 request 陣列
-        if (parsed.kind === 2 && parsed.k === 'requests' && Array.isArray(parsed.v)) {
-          newFormatRequests = parsed.v as CopilotRequest[];
+        // 新版格式：kind=2 k=["requests"]，追加（不取代）到累積陣列
+        const kIsTopLevelRequests = parsed.k === 'requests' ||
+          (Array.isArray(parsed.k) && parsed.k.length === 1 && parsed.k[0] === 'requests');
+        if (parsed.kind === 2 && kIsTopLevelRequests && Array.isArray(parsed.v)) {
+          for (const r of parsed.v as CopilotRequest[]) {
+            newFormatRequests.push({ ...r });
+          }
+          isNewFormat = true;
+          continue;
+        }
+
+        // 新版格式：kind=2 k=["requests", N, "response"]，記錄 response patch
+        if (parsed.kind === 2 &&
+            Array.isArray(parsed.k) && parsed.k.length === 3 &&
+            parsed.k[0] === 'requests' && parsed.k[2] === 'response' &&
+            Array.isArray(parsed.v)) {
+          const idx = parsed.k[1];
+          if (typeof idx === 'number') {
+            responsePatches.set(idx, parsed.v as CopilotMessagePart[]);
+          }
           continue;
         }
 
@@ -534,13 +580,21 @@ export class CopilotExtractor implements IChatExtractor {
         const v = parsed.v as CopilotSession | undefined;
         if (!v?.requests?.length) continue;
         if (!targetSessionId || v.sessionId === targetSessionId) {
-          bestSession = v; // Keep overwriting — last match is most complete
+          bestSession = v;
         }
       } catch { continue; }
     }
 
-    // 新版格式優先（資料更完整），若無則 fallback 舊版
-    const requests = newFormatRequests ?? bestSession?.requests;
+    // 新版格式：把 response patch 合回對應的 request
+    if (isNewFormat) {
+      for (const [idx, resp] of responsePatches) {
+        if (newFormatRequests[idx]) {
+          newFormatRequests[idx] = { ...newFormatRequests[idx], response: resp };
+        }
+      }
+    }
+
+    const requests = isNewFormat ? newFormatRequests : bestSession?.requests;
     if (!requests?.length) return [];
     return this.parseMessages(requests);
   }

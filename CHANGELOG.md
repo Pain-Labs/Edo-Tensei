@@ -2,6 +2,24 @@
 
 All notable changes to the "Edo Tensei" extension will be documented in this file.
 
+## [1.0.6] - Bug Fix & Performance - 2026-05-09
+
+### Copilot Chat — Critical Bug Fixes
+
+- **Session not found fix**: Resolved a parsing bug where Copilot JSONL sessions in the new incremental-patch format were silently skipped. The root cause was the `["requests"]` key being stored as a JSON array instead of a plain string — the extractor only matched the string form, so all new-format sessions went undetected in both project scan and scan-all.
+- **JSONC workspace fix**: Fixed a crash when resolving `.code-workspace` files that contain `//` line comments (standard VS Code JSONC). `JSON.parse` would throw; extractor now strips comments before parsing, so multi-root workspaces are correctly resolved.
+- **Incomplete message export fix**: Fixed message content being truncated or missing. New-format JSONL uses append-mode — each `["requests"]` block adds exactly one request; extractor was incorrectly treating each block as a full replacement. Now correctly accumulates all blocks and applies response patches to reconstruct the full conversation.
+- **Wrong project attribution fix**: In multi-root workspaces, sessions were being attributed to the wrong project (last folder wins). Changed merge strategy to first-wins so each session appears under the correct root.
+
+### Performance
+
+- **Break-early prescan**: For new-format JSONL sessions, prescan now stops reading as soon as the session ID and first user message are found (typically within the first 5 lines), avoiding unnecessary I/O on large session files (some exceed 100 MB).
+- **Bounded scan concurrency**: `extractAll` now processes workspace storage entries in batches of 8 instead of all at once, reducing peak concurrent file operations from ~1600 to ~160.
+
+### Tests
+
+- Added 12 unit tests for `CopilotExtractor` covering all three JSONL format generations, prescan, full-load, scan-all, and project-scoped filtering (including multi-root `.code-workspace` resolution).
+
 ## [1.0.4] - Feature - 2026-05-08
 
 - **Model Context Protocol (MCP) Server (Beta)**: Introduced a built-in MCP server that enables AI agents (Cursor, Copilot, Claude, Kiro, Antigravity) to programmatically discover, read, and export Edo Tensei sessions.

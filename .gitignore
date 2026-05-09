@@ -25,6 +25,9 @@ docs/brand/**
 .cline/**
 .cursor/**
 .github/**
+!.github/
+!.github/workflows/
+!.github/workflows/*.yml
 docs/alternatives/**
 scripts/**
 docs/roadmap/**

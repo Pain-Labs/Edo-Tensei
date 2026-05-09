@@ -143,29 +143,83 @@ Both modes respect `edoTensei.promptLanguage` (English / Traditional Chinese).
 
 ---
 
-## Publishing
+## CI/CD and Publishing
 
-```bash
-# Install vsce if not already installed
-npm install -g @vscode/vsce
+Publishing is handled by GitHub Actions, not by manual local publishing. The goal is to catch release problems during PR validation before a Marketplace publish has already happened.
 
-# Build and package
-npm run build
-vsce package
+### Release Flow
 
-# Publish to VS Code Marketplace
-vsce publish
+```text
+feature branch
+    |
+    v
+Pull Request to main
+    |
+    +--> Validate Extension workflow
+    |       - version bump guard
+    |       - typecheck
+    |       - tests
+    |       - VSIX packaging
+    |       - Open VSX manifest compatibility check
+    |
+    v
+merge to main with package.json version changed
+    |
+    v
+Publish Extension workflow
+    |
+    +--> package once as edo-tensei.vsix
+    +--> validate manifest compatibility
+    +--> publish to VS Code Marketplace
+    +--> publish the same VSIX to Open VSX
 ```
 
-Version bumping:
+### Workflow Guardrails
+
+| Stage | Workflow | Trigger | What it checks | Why it matters |
+| :--- | :--- | :--- | :--- | :--- |
+| PR validation | `.github/workflows/validate.yml` | Pull requests to `main` | Release-relevant changes must bump `package.json` version | Prevents merging code changes that will not trigger a publish or will reuse an existing version |
+| PR validation | `.github/workflows/validate.yml` | Pull requests to `main`, branch pushes | `npm run typecheck` and `npm test` | Catches TypeScript and unit test failures before merge |
+| PR validation | `.github/workflows/validate.yml` | Pull requests to `main`, branch pushes | `npx @vscode/vsce package --out edo-tensei.vsix` | Verifies the extension can be packaged before release |
+| PR validation | `.github/workflows/validate.yml` | Pull requests to `main`, branch pushes | VSIX `extension.vsixmanifest` display name must match `package.json` display name | Catches Open VSX manifest compatibility errors early |
+| Publishing | `.github/workflows/publish.yml` | Push to `main` when `package.json` changes, or manual dispatch | Re-runs typecheck, tests, packaging, and manifest compatibility validation | Stops publishing before any registry call if the package is invalid |
+| Publishing | `.github/workflows/publish.yml` | After validation passes | Publishes to VS Code Marketplace, then publishes the same `edo-tensei.vsix` to Open VSX | Keeps both registries using the same verified artifact |
+
+### Version Bumping
+
+Every release-relevant PR must bump `package.json` and `package-lock.json`.
 
 ```bash
-npm version patch   # 1.0.0 → 1.0.1
-npm version minor   # 1.0.0 → 1.1.0
-npm version major   # 1.0.0 → 2.0.0
+npm version patch --no-git-tag-version   # 1.0.0 -> 1.0.1
+npm version minor --no-git-tag-version   # 1.0.0 -> 1.1.0
+npm version major --no-git-tag-version   # 1.0.0 -> 2.0.0
 ```
+
+The PR validation workflow treats these paths as release-relevant:
+
+| Path pattern | Reason |
+| :--- | :--- |
+| `src/` | Extension runtime code |
+| `mcp-server/src/` | Bundled MCP server runtime code |
+| `i18n/` and `package.nls*.json` | User-facing localized text |
+| `package.json` and `package-lock.json` | Manifest, dependencies, scripts, and version |
+| `README.md`, `CHANGELOG.md`, `docs/README*`, `docs/assets/` | Marketplace/Open VSX package content |
+| `.vscodeignore` | Controls what is included in the VSIX |
+| `.github/workflows/` | CI/CD and publishing behavior |
 
 Update `CHANGELOG.md` before each release.
+
+### Local Preflight
+
+Run these before opening a release PR:
+
+```bash
+npm run typecheck
+npm test
+npx @vscode/vsce package --out edo-tensei.vsix
+```
+
+Do not publish manually from local development unless recovering from a CI outage. If local packaging creates a `.vsix`, it is ignored by Git.
 
 ---
 

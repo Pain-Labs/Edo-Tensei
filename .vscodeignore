@@ -36,13 +36,19 @@ scripts/
 # Logo candidates (design drafts, not needed at runtime)
 docs/assets/candidates/
 
-# Unused asset sizes (keep only 128 which is referenced by package.json)
+# Keep only required runtime assets; all others are served via GitHub raw URLs
 docs/assets/edo_tensei_logo.png
 docs/assets/edo_tensei_logo_64.png
 docs/assets/edo_tensei_logo_256.png
+docs/assets/hero_banner.png
+docs/assets/features.png
+docs/assets/workflow_guide.png
+docs/assets/ui_operation_guide.png
 
 # Development files
 DEVELOPMENT.md
+vitest.config.ts
+test/
 
 # Keep the following (will be bundled):
 # - README.md

@@ -6,7 +6,7 @@
 
 [繁體中文](./docs/README.zh-TW.md) | [日本語](./docs/README.ja.md) | [한국어](./docs/README.ko.md) | [简体中文](./docs/README.zh-CN.md) | English
 
-![Edo Tensei – AI Session Handoff Manager for VS Code](docs/assets/hero_banner.png)
+![Edo Tensei – AI Session Handoff Manager for VS Code](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/hero_banner.png)
 
 ---
 
@@ -26,7 +26,7 @@ This tool is named after this concept to symbolize "context reincarnation" in AI
 - **The Vessel**: The **Handoff Prompt** extracted and packaged by this tool.
 - **The Reincarnation**: Pasting the prompt into a new IDE/agent, allowing the "dead" development context to be perfectly reborn in a new AI entity.
 
-![Workflow](./docs/assets/workflow_guide.png)
+![Workflow](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/workflow_guide.png)
 
 ---
 
@@ -59,13 +59,13 @@ This tool is named after this concept to symbolize "context reincarnation" in AI
 - **Model Context Protocol (MCP)**: Built-in MCP server allows AI agents (Cursor, Copilot, Claude, Kiro, Antigravity) to programmatically discover, read, and export Edo Tensei sessions. Use the "Show MCP Config" UI to easily configure your specific AI client.
 - **`.gitignore` Helper**: Automatically prompts you to add `.edo_tensei/` to `.gitignore` so local exports don't pollute your repo.
 
-![Features](./docs/assets/features.png)
+![Features](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/features.png)
 
 ---
 
 ## Quick Start
 
-![Operation Guide](./docs/assets/ui_operation_guide.png)
+![Operation Guide](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/ui_operation_guide.png)
 
 1. Open the **Edo Tensei** view in the VS Code Activity Bar (cracked folder icon).
 2. Click **Scan (Current Project)** or **Scan (All Projects)** to find your session history.

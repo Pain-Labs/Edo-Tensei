@@ -6,7 +6,7 @@
 
 [繁體中文](README.zh-TW.md) | [English](../README.md) | [日本語](README.ja.md) | 한국어 | [简体中文](README.zh-CN.md)
 
-![Edo Tensei – AI 세션 인계 관리자](assets/hero_banner.png)
+![Edo Tensei – AI 세션 인계 관리자](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/hero_banner.png)
 
 ---
 
@@ -26,7 +26,7 @@
 - **그릇/매개체 (The Vessel)**: 본 도구가 추출하고 패키징한 **인계 프롬프트 (Handoff Prompt)**.
 - **환생 (The Reincarnation)**: 프롬프트를 새 IDE에 붙여넣음으로써, 본래 「죽었던」 개발 컨텍스트가 새로운 AI 개체에서 완벽하게 다시 태어나게 합니다.
 
-![워크플로우](./assets/workflow_guide.png)
+![워크플로우](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/workflow_guide.png)
 
 ---
 
@@ -59,13 +59,13 @@
 - **Model Context Protocol (MCP)**: 내장된 MCP 서버를 통해 AI 에이전트(Cursor, Copilot, Claude, Kiro, Antigravity)가 프로그래밍 방식으로 Edo Tensei 세션을 검색, 읽기 및 내보낼 수 있습니다. "Show MCP Config" UI를 사용하여 특정 AI에 맞는 구성을 쉽게 생성할 수 있습니다.
 - **`.gitignore` 헬퍼**: 처음 사용 시 `.edo_tensei/`를 `.gitignore`에 추가하도록 자동으로 안내합니다.
 
-![주요 기능](./assets/features.png)
+![주요 기능](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/features.png)
 
 ---
 
 ## 빠른 시작
 
-![Operation Guide](assets/ui_operation_guide.png)
+![Operation Guide](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/ui_operation_guide.png)
 
 1. VS Code 액티비티 바의 **Edo Tensei** 뷰(균열된 폴더 아이콘)를 엽니다.
 2. **Scan (Current Project)** 또는 **Scan (All Projects)**를 클릭하여 대화 기록을 검색합니다.

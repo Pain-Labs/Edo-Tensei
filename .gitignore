@@ -29,4 +29,6 @@ docs/alternatives/**
 scripts/**
 docs/roadmap/**
 docs/alternatives/repo/**
-test/fixtures/
+test/fixtures/*
+!test/fixtures/copilot/
+!test/fixtures/copilot/**

@@ -1,0 +1,3 @@
+{"kind":0,"v":{"sessionId":"v4-session","customTitle":"Edo-Tensei Array Key JSONL Fixture","requests":[],"inputState":{"attachments":[],"mode":{"id":"agent","kind":"agent"}}}}
+{"kind":1,"k":["customTitle"],"v":"Edo-Tensei Array Key JSONL Fixture"}
+{"kind":2,"k":["requests"],"v":[{"message":{"text":"In Edo-Tensei, preserve the regression test for Copilot JSONL patches where the array key path contains only requests and carries the chat turn."},"response":[{"value":"The extractor should match the array key path form, include this session in scan results, and load the assistant response from the patched request."}],"timestamp":1700000003000,"modelId":"copilot/gpt-5.2"}]}

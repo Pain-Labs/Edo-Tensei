@@ -94,12 +94,17 @@ export class CopilotExtractor implements IChatExtractor {
   private getVSCodeUserDirs(): string[] {
     const dirs: string[] = [];
     const home = os.homedir();
+    const appData = process.env.APPDATA;
+
+    // APPDATA may be set by tests or custom launches on non-Windows hosts.
+    // Honor it first so fixture scans do not depend on the current platform.
+    if (appData) {
+      dirs.push(path.join(appData, 'Code', 'User'));
+    }
 
     if (process.platform === 'win32') {
-      const appData = process.env.APPDATA;
-      if (appData) {
-        dirs.push(path.join(appData, 'Code', 'User'));
-      }
+      // Windows VS Code stores user data under APPDATA; without it there is no
+      // reliable default equivalent to the XDG paths below.
     } else {
       dirs.push(path.join(home, '.config', 'Code', 'User'));
       dirs.push(path.join(home, '.vscode-server', 'data', 'User'));

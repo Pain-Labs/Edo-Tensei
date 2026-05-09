@@ -562,7 +562,7 @@ export async function activate(context: vscode.ExtensionContext) {
             const sessionKey = item.session.rawPath || item.session.sessionId || `${item.session.sourceIde}:${item.session.capturedAt}`;
             let shortId = sessionPreviewKeyToId.get(sessionKey);
             if (!shortId) {
-                shortId = crypto.createHash('sha1').update(sessionKey).digest('hex').slice(0, 10);
+                shortId = crypto.createHash('sha256').update(sessionKey).digest('hex').slice(0, 10);
                 sessionPreviewKeyToId.set(sessionKey, shortId);
             }
 

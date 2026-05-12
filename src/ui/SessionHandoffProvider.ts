@@ -243,11 +243,9 @@ export class SessionHandoffProvider implements vscode.TreeDataProvider<vscode.Tr
                 return `GitHub issue #${issueReplyMatch[1]} 回覆建議`;
             }
 
-            // 移除 XML 成對標籤及其內容（例如 <environment_context>...</environment_context>）
-            // 以及殘餘的 XML 開關標籤
+            // 以字元層級移除尖括號，避免多字元樣式清理造成標籤殘留（例如可重組為 <script>）
             const stripped = rawContent
-                .replace(/<[^>]+>[\s\S]*?<\/[^>]+>/g, '')
-                .replace(/<[^>]+>/g, '')
+                .replace(/[<>]/g, '')
                 .trim();
 
             if (!stripped) continue;

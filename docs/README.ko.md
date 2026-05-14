@@ -1,8 +1,11 @@
 # Edo Tensei – AI 세션 인계 관리자
 
-[![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/Pain-Labs.edo-tensei)](https://marketplace.visualstudio.com/items?itemName=Pain-Labs.edo-tensei)
-[![Installs](https://img.shields.io/visual-studio-marketplace/i/Pain-Labs.edo-tensei)](https://marketplace.visualstudio.com/items?itemName=Pain-Labs.edo-tensei)
+[![Visual Studio Marketplace Version](https://vsmarketplacebadges.dev/version-short/Pain-Labs.edo-tensei.svg)](https://marketplace.visualstudio.com/items?itemName=Pain-Labs.edo-tensei)
+[![Open VSX Version](https://img.shields.io/open-vsx/v/Pain-Labs/edo-tensei)](https://open-vsx.org/extension/Pain-Labs/edo-tensei)
+[![Open VSX Downloads](https://img.shields.io/open-vsx/dt/Pain-Labs/edo-tensei)](https://open-vsx.org/extension/Pain-Labs/edo-tensei)
 [![AI-Ready Context](https://img.shields.io/badge/AI--Ready-LLMS.txt-blue?style=flat-square)](https://pain-labs.github.io/Edo-Tensei/llms.txt)
+<!-- [![VS Marketplace Installs](https://vsmarketplacebadges.dev/installs-short/Pain-Labs.edo-tensei.svg)](https://marketplace.visualstudio.com/items?itemName=Pain-Labs.edo-tensei) -->
+<!-- [![VS Marketplace Downloads](https://vsmarketplacebadges.dev/downloads-short/Pain-Labs.edo-tensei.svg)](https://marketplace.visualstudio.com/items?itemName=Pain-Labs.edo-tensei) -->
 
 [繁體中文](README.zh-TW.md) | [English](../README.md) | [日本語](README.ja.md) | 한국어 | [简体中文](README.zh-CN.md)
 
@@ -124,6 +127,7 @@ Edo Tensei에는 [Model Context Protocol](https://modelcontextprotocol.io/) 서�
 수동으로 프롬프트를 내보내거나 복사할 필요 없이, AI 에이전트가 과거 세션을 자동으로 찾고, 전체 대화 컨텍스트를 읽으며, 중단된 워크플로를 원활하게 재개할 수 있습니다.
 
 MCP 서버 설정 방법:
+
 1. **Edo Tensei: Show MCP Config** 명령을 실행합니다.
 2. AI 클라이언트(Cursor, GitHub Copilot, Claude Code, Kiro 또는 Antigravity)를 선택합니다.
 3. 워크스페이스 구성 설정(Recommended, Selected, Variable 또는 All Workspaces)을 선택합니다.

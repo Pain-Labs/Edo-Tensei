@@ -69,4 +69,5 @@ jobs:
 
       - name: Publish to Open VSX
         if: steps.check_version.outputs.changed == 'true'
-        run: npx ovsx publish edo-tensei.vsix -p ${{ secrets.OPEN_VSX_TOKEN }} --no-fail-if-already-exists
+        continue-on-error: true
+        run: npx ovsx publish edo-tensei.vsix -p ${{ secrets.OPEN_VSX_TOKEN }}

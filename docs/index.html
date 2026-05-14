@@ -91,6 +91,15 @@
     <!-- LLMs.txt for AI Context -->
     <link rel="llms-txt" type="text/markdown" href="/Edo-Tensei/llms.txt" />
 
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KCE6XMKK0H"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-KCE6XMKK0H');
+    </script>
+
     <style>
         :root {
             --primary: #007acc;
@@ -125,6 +134,12 @@
             width: 80px;
             height: 80px;
             margin-bottom: 20px;
+        }
+
+        .site-logo {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18), 0 8px 24px rgba(0, 0, 0, 0.35);
         }
 
         .hero-img {
@@ -268,7 +283,7 @@
 
     <header>
         <div class="container">
-            <img src="assets/edo_tensei_logo_128.png" alt="Edo Tensei icon" style="width:80px;height:80px;border-radius:12px;">
+            <img src="assets/edo_tensei_logo_128.png" alt="Edo Tensei icon" class="site-logo">
             <h1>Edo Tensei</h1>
             <p class="subtitle">When your AI quota runs out mid-task, switching IDEs shouldn't mean losing your context. One click to hand off to the next agent.</p>
             <div>

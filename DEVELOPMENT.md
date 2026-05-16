@@ -158,7 +158,7 @@ Pull Request to main
     +--> Validate Extension workflow
     |       - version bump guard
     |       - typecheck
-    |       - tests
+    |       - tests with coverage
     |       - VSIX packaging
     |       - Open VSX manifest compatibility check
     |
@@ -179,11 +179,33 @@ Publish Extension workflow
 | Stage | Workflow | Trigger | What it checks | Why it matters |
 | :--- | :--- | :--- | :--- | :--- |
 | PR validation | `.github/workflows/validate.yml` | Pull requests to `main` | Release-relevant changes must bump `package.json` version | Prevents merging code changes that will not trigger a publish or will reuse an existing version |
-| PR validation | `.github/workflows/validate.yml` | Pull requests to `main`, branch pushes | `npm run typecheck` and `npm test` | Catches TypeScript and unit test failures before merge |
+| PR validation | `.github/workflows/validate.yml` | Pull requests to `main`, branch pushes | `npm run typecheck` and `npm run test:coverage` | Catches TypeScript failures, unit test failures, and coverage regressions before merge |
 | PR validation | `.github/workflows/validate.yml` | Pull requests to `main`, branch pushes | `npx @vscode/vsce package --out edo-tensei.vsix` | Verifies the extension can be packaged before release |
 | PR validation | `.github/workflows/validate.yml` | Pull requests to `main`, branch pushes | VSIX `extension.vsixmanifest` display name must match `package.json` display name | Catches Open VSX manifest compatibility errors early |
 | Publishing | `.github/workflows/publish.yml` | Push to `main` when `package.json` changes, or manual dispatch | Re-runs typecheck, tests, packaging, and manifest compatibility validation | Stops publishing before any registry call if the package is invalid |
 | Publishing | `.github/workflows/publish.yml` | After validation passes | Publishes to VS Code Marketplace, then publishes the same `edo-tensei.vsix` to Open VSX | Keeps both registries using the same verified artifact |
+
+### Test Coverage
+
+`npm run test:coverage` runs the Vitest unit suite with V8 coverage enabled. PR validation uses this command instead of plain `npm test`.
+
+Coverage thresholds are intentionally scoped to the core files with focused unit coverage:
+
+- `src/core/extractors/CodexExtractor.ts`
+- `src/core/PathInference.ts`
+- `src/core/SessionSearchEngine.ts`
+- `src/core/TimeFilter.ts`
+
+Current thresholds:
+
+| Metric | Minimum |
+| :--- | ---: |
+| Statements | 90% |
+| Branches | 80% |
+| Functions | 90% |
+| Lines | 90% |
+
+Do not expand coverage `include` patterns casually. Add tests for the newly included files in the same PR, otherwise unrelated legacy or UI-heavy code can make the coverage gate noisy without improving release confidence.
 
 ### Version Bumping
 
@@ -215,8 +237,9 @@ Run these before opening a release PR:
 
 ```bash
 npm run typecheck
-npm test
+npm run test:coverage
 npx @vscode/vsce package --out edo-tensei.vsix
+npx @vscode/vsce ls --tree
 ```
 
 Do not publish manually from local development unless recovering from a CI outage. If local packaging creates a `.vsix`, it is ignored by Git.

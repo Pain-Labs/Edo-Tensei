@@ -54,8 +54,8 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
-      - name: Run tests
-        run: npm test
+      - name: Run tests with coverage
+        run: npm run test:coverage
 
       - name: Package extension
         run: npx @vscode/vsce package --out edo-tensei.vsix

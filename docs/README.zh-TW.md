@@ -1,8 +1,11 @@
 # Edo Tensei – AI Session 交接管理器
 
-[![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/Pain-Labs.edo-tensei)](https://marketplace.visualstudio.com/items?itemName=Pain-Labs.edo-tensei)
-[![Installs](https://img.shields.io/visual-studio-marketplace/i/Pain-Labs.edo-tensei)](https://marketplace.visualstudio.com/items?itemName=Pain-Labs.edo-tensei)
+[![Visual Studio Marketplace Version](https://vsmarketplacebadges.dev/version-short/Pain-Labs.edo-tensei.svg)](https://marketplace.visualstudio.com/items?itemName=Pain-Labs.edo-tensei)
+[![Open VSX Version](https://img.shields.io/open-vsx/v/Pain-Labs/edo-tensei)](https://open-vsx.org/extension/Pain-Labs/edo-tensei)
+[![Open VSX Downloads](https://img.shields.io/open-vsx/dt/Pain-Labs/edo-tensei)](https://open-vsx.org/extension/Pain-Labs/edo-tensei)
 [![AI-Ready Context](https://img.shields.io/badge/AI--Ready-LLMS.txt-blue?style=flat-square)](https://pain-labs.github.io/Edo-Tensei/llms.txt)
+<!-- [![VS Marketplace Installs](https://vsmarketplacebadges.dev/installs-short/Pain-Labs.edo-tensei.svg)](https://marketplace.visualstudio.com/items?itemName=Pain-Labs.edo-tensei) -->
+<!-- [![VS Marketplace Downloads](https://vsmarketplacebadges.dev/downloads-short/Pain-Labs.edo-tensei.svg)](https://marketplace.visualstudio.com/items?itemName=Pain-Labs.edo-tensei) -->
 
 繁體中文 | **[English](../README.md)** | [日本語](README.ja.md) | [한국어](README.ko.md) | [简体中文](README.zh-CN.md)
 
@@ -124,6 +127,7 @@ Edo Tensei 內建了 [Model Context Protocol](https://modelcontextprotocol.io/) 
 AI Agent 不需要你手動匯出或複製交接 Prompt，而是能自動探索過去的 sessions，讀取完整的對話上下文，並無縫接續中斷的工作流。
 
 如何設定 MCP 伺服器：
+
 1. 執行 **Edo Tensei: Show MCP Config** 指令。
 2. 選擇你的 AI 工具 (Cursor, GitHub Copilot, Claude Code, Kiro 或 Antigravity)。
 3. 選擇你的 Workspace 設定偏好 (Recommended, Selected, Variable 或 All Workspaces)。

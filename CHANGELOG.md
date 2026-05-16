@@ -2,6 +2,21 @@
 
 All notable changes to the "Edo Tensei" extension will be documented in this file.
 
+## [1.1.2] - Codex Sanitization & Test Coverage - 2026-05-16
+
+### Security
+
+- Hardened Codex session parsing so injected scaffolding such as `<environment_context>`, `<permissions instructions>`, `<collaboration_mode>`, `<skills_instructions>`, and AGENTS.md instruction blocks are filtered without using broad multi-character tag-stripping sanitizers.
+- Preserved real user prompts when Codex-injected scaffolding is followed by actual user content, preventing over-filtering during session handoff.
+- Kept angle-bracket title sanitization from reconstructing malformed tag payloads.
+
+### Tests and CI
+
+- Added focused Vitest coverage for Codex injected-message filtering, rollout parsing, workspace filtering, fallback extraction behavior, and filesystem discovery edge cases.
+- Added core unit tests for `PathInference`, `SessionSearchEngine`, and `TimeFilter`.
+- Added `npm run test:coverage` using `@vitest/coverage-v8` and configured coverage thresholds for the tested core files.
+- Updated PR validation to run tests with coverage before packaging the extension.
+
 ## [1.0.6] - Bug Fix & Performance - 2026-05-09
 
 ### Copilot Chat — Critical Bug Fixes

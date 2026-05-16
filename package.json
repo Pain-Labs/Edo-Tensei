@@ -2,7 +2,7 @@
   "name": "edo-tensei",
   "displayName": "Edo Tensei",
   "description": "%extension.description%",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "publisher": "Pain-Labs",
   "icon": "docs/assets/edo_tensei_logo_128.png",
   "license": "MIT",
@@ -285,6 +285,7 @@
   },
   "scripts": {
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "vscode:prepublish": "npm run build:ext && npm run build:mcp",
@@ -300,6 +301,7 @@
   "devDependencies": {
     "@types/node": "^20.19.40",
     "@types/vscode": "^1.79.0",
+    "@vitest/coverage-v8": "^4.1.5",
     "esbuild": "^0.25.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.5"

@@ -207,16 +207,59 @@ export class CodexExtractor implements IChatExtractor {
 
     if (INJECTED_PREFIXES.some(p => stripped.startsWith(p))) {
       // 若整段文字都在標籤區塊裡，確認沒有夾雜真正的使用者輸入
-      // 策略：去除所有 <tag>...</tag> 區塊及 <tag> 殘留後，剩餘文字 < 50 字元則視為純注入
-      const withoutTags = text
-        .replace(/<[a-z_]+>[\s\S]*?<\/[a-z_]+>/gi, '')
-        .replace(/<[^>]+>/g, '')
-        .replace(/^#+\s+AGENTS\.md[^\n]*/gm, '') // AGENTS.md 標題行
-        .trim();
+      // 策略：移除已知 Codex 注入區塊，再以字元層級清掉尖括號，避免多字元 sanitizer 重組出標籤。
+      const withoutTags = this.stripCodexInjectedScaffolding(text);
       return withoutTags.length < 50;
     }
 
     return false;
+  }
+
+  private stripCodexInjectedScaffolding(text: string): string {
+    const blocks: Array<[string, string]> = [
+      ['<permissions instructions>', '</permissions instructions>'],
+      ['<collaboration_mode>', '</collaboration_mode>'],
+      ['<skills_instructions>', '</skills_instructions>'],
+      ['<environment_context>', '</environment_context>'],
+    ];
+
+    let result = text;
+    for (const [openTag, closeTag] of blocks) {
+      result = this.removeMarkedBlocks(result, openTag, closeTag);
+    }
+
+    return result
+      .split(/\r?\n/)
+      .filter(line => !line.trimStart().startsWith('# AGENTS.md instructions for'))
+      .join('\n')
+      .replace(/[<>]/g, '')
+      .trim();
+  }
+
+  private removeMarkedBlocks(text: string, openMarker: string, closeMarker: string): string {
+    let result = '';
+    let cursor = 0;
+    const lowerText = text.toLowerCase();
+    const lowerOpen = openMarker.toLowerCase();
+    const lowerClose = closeMarker.toLowerCase();
+
+    while (cursor < text.length) {
+      const start = lowerText.indexOf(lowerOpen, cursor);
+      if (start === -1) {
+        result += text.slice(cursor);
+        break;
+      }
+
+      result += text.slice(cursor, start);
+      const closeStart = lowerText.indexOf(lowerClose, start + openMarker.length);
+      if (closeStart === -1) {
+        break;
+      }
+
+      cursor = closeStart + closeMarker.length;
+    }
+
+    return result;
   }
 
   private async findRolloutFiles(root: string): Promise<string[]> {

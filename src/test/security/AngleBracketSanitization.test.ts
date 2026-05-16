@@ -5,98 +5,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CodexExtractor } from '../../core/extractors/CodexExtractor'
 import { SessionHandoffProvider } from '../../ui/SessionHandoffProvider'
 
-type ParsedMessage = {
-  role: 'user' | 'assistant' | 'system'
-  content: string
-  timestamp?: string
-}
-
-function legacyIsCodexInjectedMessage(role: string, text: string): boolean {
-  if (role === 'developer' || role === 'system') return true
-
-  const stripped = text.trimStart()
-
-  if (stripped.startsWith('<turn_aborted>')) return true
-
-  const injectedPrefixes = [
-    '<permissions instructions>',
-    '<collaboration_mode>',
-    '<skills_instructions>',
-    '<environment_context>',
-    '# AGENTS.md instructions for',
-  ]
-
-  if (injectedPrefixes.some(prefix => stripped.startsWith(prefix))) {
-    const withoutTags = text
-      .replace(/<[a-z_]+>[\s\S]*?<\/[a-z_]+>/gi, '')
-      .replace(/<[^>]+>/g, '')
-      .replace(/^#+\s+AGENTS\.md[^\n]*/gm, '')
-      .trim()
-
-    return withoutTags.length < 50
-  }
-
-  return false
-}
-
-function parseWithLegacyCodexInjectedFilter(raw: string): ParsedMessage[] {
-  const messages: ParsedMessage[] = []
-
-  for (const line of raw.split('\n')) {
-    const trimmed = line.trim()
-    if (!trimmed) continue
-
-    let obj: any
-    try {
-      obj = JSON.parse(trimmed)
-    } catch {
-      continue
-    }
-
-    if (obj.type !== 'response_item') continue
-
-    const payload = obj.payload || {}
-    if (payload.type !== 'message') continue
-
-    const role = payload.role
-    if (role !== 'user' && role !== 'assistant' && role !== 'developer' && role !== 'system') continue
-
-    const contentArr = payload.content
-    if (!Array.isArray(contentArr)) continue
-
-    const text = contentArr
-      .map((content: any) => {
-        if (!content) return ''
-        if (typeof content.text === 'string') return content.text
-        if (typeof content.input_text === 'string') return content.input_text
-        return ''
-      })
-      .join('')
-      .trim()
-
-    if (!text) continue
-
-    if (role === 'user' && text.trimStart().startsWith('# Context from my IDE setup:')) {
-      const marker = '## My request for Codex:'
-      const markerIndex = text.indexOf(marker)
-      if (markerIndex !== -1) {
-        const requestText = text.slice(markerIndex + marker.length).trim()
-        if (requestText) {
-          messages.push({ role: 'user', content: requestText, timestamp: obj.timestamp })
-        }
-      }
-      continue
-    }
-
-    if (legacyIsCodexInjectedMessage(role, text)) continue
-
-    const mappedRole: ParsedMessage['role'] = role === 'user' ? 'user' : role === 'assistant' ? 'assistant' : 'system'
-    messages.push({ role: mappedRole, content: text, timestamp: obj.timestamp })
-  }
-
-  return messages
-}
-
 function codexMessage(timestamp: string, role: string, text: string): string {
   return JSON.stringify({
     timestamp,
@@ -179,7 +87,7 @@ describe('angle bracket sanitization', () => {
     expect((extractor as any).isCodexInjectedMessage('user', mixedMessage)).toBe(false)
   })
 
-  it('filters pure permissions blocks that the legacy sanitizer could leak', () => {
+  it('filters pure permissions blocks even when their body exceeds the fallback length heuristic', () => {
     const extractor = new CodexExtractor()
     const permissionsBlock = [
       '<permissions instructions>',
@@ -187,11 +95,10 @@ describe('angle bracket sanitization', () => {
       '</permissions instructions>',
     ].join('\n')
 
-    expect(legacyIsCodexInjectedMessage('user', permissionsBlock)).toBe(false)
     expect((extractor as any).isCodexInjectedMessage('user', permissionsBlock)).toBe(true)
   })
 
-  it('preserves legacy Codex rollout output for canonical injected scaffolding', () => {
+  it('preserves Codex rollout output for canonical injected scaffolding', () => {
     const extractor = new CodexExtractor()
     const rawRollout = [
       codexMessage('2026-05-16T01:00:00.000Z', 'developer', 'You are Codex, a coding agent.'),
@@ -224,9 +131,7 @@ describe('angle bracket sanitization', () => {
     ].join('\n')
 
     const currentOutput = (extractor as any).parseCodexRollout(rawRollout).messages
-    const legacyOutput = parseWithLegacyCodexInjectedFilter(rawRollout)
 
-    expect(currentOutput).toEqual(legacyOutput)
     expect(currentOutput).toEqual([
       {
         role: 'user',

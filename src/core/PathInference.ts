@@ -128,7 +128,8 @@ export class PathInference {
 
     if (common.length === 0) return undefined;
     const root = path.parse(dirs[0]).root;
-    const resolved = path.resolve(root, ...common.slice(root ? 1 : 0));
+    const dropDriveSegment = /^[A-Za-z]:$/.test(common[0]) ? 1 : 0;
+    const resolved = path.resolve(root, ...common.slice(dropDriveSegment));
     return this.trimToProjectLikeRoot(resolved);
   }
 

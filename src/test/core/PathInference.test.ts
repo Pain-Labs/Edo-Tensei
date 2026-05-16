@@ -28,13 +28,13 @@ afterEach(() => {
 describe('PathInference', () => {
   it('extracts unique absolute and relative path mentions while cleaning punctuation and images', () => {
     const mentions = PathInference.extractPathMentions([
-      'Open C:\\Work\\Edo-Tensei\\src\\index.ts, then C:\\Work\\Edo-Tensei\\src\\index.ts.',
-      'Also inspect /Users/kwz50/project/docs/readme.md and src/core/file.ts.',
+      'Open C:\\Workspace\\SampleProject\\src\\index.ts, then C:\\Workspace\\SampleProject\\src\\index.ts.',
+      'Also inspect /tmp/sample-project/docs/readme.md and src/core/file.ts.',
       'Ignore docs/logo.png and `scripts/build.ts`.',
     ].join('\n'))
 
-    expect(mentions).toContain('C:\\Work\\Edo-Tensei\\src\\index.ts')
-    expect(mentions).toContain('/Users/kwz50/project/docs/readme.md')
+    expect(mentions).toContain('C:\\Workspace\\SampleProject\\src\\index.ts')
+    expect(mentions).toContain('/tmp/sample-project/docs/readme.md')
     expect(mentions).toContain('src/core/file.ts')
     expect(mentions).toContain('scripts/build.ts')
     expect(mentions).not.toContain('docs/logo.png')
@@ -89,9 +89,9 @@ describe('PathInference', () => {
       throw new Error('blocked')
     })
 
-    const result = PathInference.inferFromText('/Users/kwz50/project/src/index.ts\n/Users/kwz50/project/docs/readme.md')
+    const result = PathInference.inferFromText('/tmp/sample-project/src/index.ts\n/tmp/sample-project/docs/readme.md')
 
-    expect(result.workspacePath?.replace(/\\/g, '/')).toContain('/Users/kwz50')
+    expect(result.workspacePath?.replace(/\\/g, '/')).toContain('/tmp/sample-project')
     expect(result.reason).toBe('common-parent-from-absolute-paths')
   })
 

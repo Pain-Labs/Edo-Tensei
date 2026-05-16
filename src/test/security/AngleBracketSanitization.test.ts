@@ -159,7 +159,7 @@ describe('angle bracket sanitization', () => {
     const extractor = new CodexExtractor()
     const injected = [
       '<environment_context>',
-      '<cwd>C:\\Users\\kwz50\\Edo-Tensei</cwd>',
+      '<cwd>C:\\Workspace\\Edo-Tensei</cwd>',
       '<shell>powershell</shell>',
       '</environment_context>',
     ].join('\n')
@@ -171,7 +171,7 @@ describe('angle bracket sanitization', () => {
     const extractor = new CodexExtractor()
     const mixedMessage = [
       '<environment_context>',
-      '<cwd>C:\\Users\\kwz50\\Edo-Tensei</cwd>',
+      '<cwd>C:\\Workspace\\Edo-Tensei</cwd>',
       '</environment_context>',
       'Please analyze the security alert and update the implementation with tests.',
     ].join('\n')
@@ -197,12 +197,12 @@ describe('angle bracket sanitization', () => {
       codexMessage('2026-05-16T01:00:00.000Z', 'developer', 'You are Codex, a coding agent.'),
       codexMessage('2026-05-16T01:00:01.000Z', 'user', [
         '<environment_context>',
-        '<cwd>C:\\Users\\kwz50\\Edo-Tensei</cwd>',
+        '<cwd>C:\\Workspace\\Edo-Tensei</cwd>',
         '<shell>powershell</shell>',
         '</environment_context>',
       ].join('\n')),
       codexMessage('2026-05-16T01:00:03.000Z', 'user', [
-        '# AGENTS.md instructions for c:\\Users\\kwz50\\Edo-Tensei',
+        '# AGENTS.md instructions for c:\\Workspace\\Edo-Tensei',
         '',
         '<INSTRUCTIONS>',
         '任務報告或規劃文件皆優先以中文撰寫',
@@ -217,7 +217,7 @@ describe('angle bracket sanitization', () => {
       codexMessage('2026-05-16T01:00:05.000Z', 'assistant', 'I will inspect the staged diff and add focused tests.'),
       codexMessage('2026-05-16T01:00:06.000Z', 'user', [
         '<environment_context>',
-        '<cwd>C:\\Users\\kwz50\\Edo-Tensei</cwd>',
+        '<cwd>C:\\Workspace\\Edo-Tensei</cwd>',
         '</environment_context>',
         'This is actual user content that must remain because it is longer than fifty characters.',
       ].join('\n')),
@@ -242,7 +242,7 @@ describe('angle bracket sanitization', () => {
         role: 'user',
         content: [
           '<environment_context>',
-          '<cwd>C:\\Users\\kwz50\\Edo-Tensei</cwd>',
+          '<cwd>C:\\Workspace\\Edo-Tensei</cwd>',
           '</environment_context>',
           'This is actual user content that must remain because it is longer than fifty characters.',
         ].join('\n'),
@@ -262,9 +262,9 @@ describe('angle bracket sanitization', () => {
       '<permissions instructions>',
       'sandbox rules',
       '</permissions instructions>',
-      '# AGENTS.md instructions for c:\\Users\\kwz50\\Edo-Tensei',
+      '# AGENTS.md instructions for c:\\Workspace\\Edo-Tensei',
       '<environment_context>',
-      '<cwd>C:\\Users\\kwz50\\Edo-Tensei</cwd>',
+      '<cwd>C:\\Workspace\\Edo-Tensei</cwd>',
       '</environment_context>',
       '<actual user text>',
     ].join('\n'))

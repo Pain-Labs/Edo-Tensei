@@ -503,6 +503,120 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    // ── temp file helper ──────────────────────────────────────────────────────
+
+    fn temp_jsonl(name: &str, content: &str) -> std::path::PathBuf {
+        let id = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .subsec_nanos();
+        let path = std::env::temp_dir().join(format!("edo_copilot_{id}_{name}"));
+        std::fs::write(&path, content).unwrap();
+        path
+    }
+
+    // ── prescan_jsonl JSONL format variants ───────────────────────────────────
+    //
+    // Regression suite mirroring the TypeScript CopilotExtractor.test.ts
+    // prescanJsonl describe block (v2 / v3 / v4 formats).
+
+    #[test]
+    fn test_prescan_jsonl_v2_kind0_full_snapshot() {
+        // v2: kind=0 line already contains populated requests[]
+        let path = temp_jsonl("v2.jsonl", concat!(
+            r#"{"kind":0,"v":{"sessionId":"v2-session","requests":[{"message":{"text":"Edo-Tensei snapshot"},"response":[{"value":"a"}]}]}}"#,
+            "\n"
+        ));
+        let results = prescan_jsonl(&path);
+        std::fs::remove_file(&path).ok();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0.as_deref(), Some("v2-session"));
+        assert!(results[0].2.as_ref().unwrap().content.contains("Edo-Tensei snapshot"));
+    }
+
+    #[test]
+    fn test_prescan_jsonl_v3_kind2_k_as_string() {
+        // v3: kind=0 has empty requests, first message arrives via kind=2 k="requests"
+        let path = temp_jsonl("v3.jsonl", concat!(
+            r#"{"kind":0,"v":{"sessionId":"v3-session","requests":[]}}"#, "\n",
+            r#"{"kind":2,"k":"requests","v":[{"message":{"text":"lazy message loading"},"response":[]}]}"#, "\n",
+        ));
+        let results = prescan_jsonl(&path);
+        std::fs::remove_file(&path).ok();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0.as_deref(), Some("v3-session"));
+        assert!(results[0].2.as_ref().unwrap().content.contains("lazy message loading"));
+    }
+
+    #[test]
+    fn test_prescan_jsonl_v4_kind2_k_as_array() {
+        // v4 regression: k=["requests"] (array with one element) must be treated same as k="requests"
+        let path = temp_jsonl("v4.jsonl", concat!(
+            r#"{"kind":0,"v":{"sessionId":"v4-session","requests":[]}}"#, "\n",
+            r#"{"kind":2,"k":["requests"],"v":[{"message":{"text":"array key path"},"response":[]}]}"#, "\n",
+        ));
+        let results = prescan_jsonl(&path);
+        std::fs::remove_file(&path).ok();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0.as_deref(), Some("v4-session"));
+        assert!(results[0].2.as_ref().unwrap().content.contains("array key path"));
+    }
+
+    // ── prescan_json old .json format ─────────────────────────────────────────
+
+    #[test]
+    fn test_prescan_json_v1_old_format() {
+        // v1: single .json file, top-level sessionId + requests[]
+        let path = temp_jsonl("v1.json",
+            r#"{"sessionId":"v1-session","requests":[{"message":{"text":"legacy JSON"},"response":[{"value":"ok"}]}]}"#,
+        );
+        let results = prescan_json(&path);
+        std::fs::remove_file(&path).ok();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0.as_deref(), Some("v1-session"));
+        assert!(results[0].2.as_ref().unwrap().content.contains("legacy JSON"));
+    }
+
+    // ── parse_jsonl_full format variants ──────────────────────────────────────
+
+    #[test]
+    fn test_parse_jsonl_full_v2_snapshot() {
+        // v2 full load: kind=0 contains all data
+        let path = temp_jsonl("full_v2.jsonl", concat!(
+            r#"{"kind":0,"v":{"sessionId":"v2-session","requests":[{"message":{"text":"What is Rust?"},"response":[{"value":"Rust is great."}]}]}}"#,
+            "\n"
+        ));
+        let results = parse_jsonl_full(&path);
+        std::fs::remove_file(&path).ok();
+        assert_eq!(results.len(), 1);
+        let msgs = &results[0].2;
+        assert_eq!(msgs.len(), 2);
+        assert_eq!(msgs[0].role, "user");
+        assert_eq!(msgs[0].content, "What is Rust?");
+        assert_eq!(msgs[1].role, "assistant");
+        assert!(msgs[1].content.contains("Rust is great."));
+    }
+
+    #[test]
+    fn test_parse_jsonl_full_v4_patch_based() {
+        // v4 full load: kind=0 empty + kind=2 append + kind=2 response patch
+        let path = temp_jsonl("full_v4.jsonl", concat!(
+            r#"{"kind":0,"v":{"sessionId":"v4-session","requests":[]}}"#, "\n",
+            r#"{"kind":2,"k":["requests"],"v":[{"message":{"text":"array key path"},"response":[]}]}"#, "\n",
+            r#"{"kind":2,"k":["requests",0,"response"],"v":[{"value":"answer to v4"}]}"#, "\n",
+        ));
+        let results = parse_jsonl_full(&path);
+        std::fs::remove_file(&path).ok();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0.as_deref(), Some("v4-session"));
+        let msgs = &results[0].2;
+        assert_eq!(msgs.len(), 2);
+        assert_eq!(msgs[0].role, "user");
+        assert!(msgs[0].content.contains("array key path"));
+        assert_eq!(msgs[1].role, "assistant");
+        assert!(msgs[1].content.contains("answer to v4"));
+    }
+
     // ── extract_json_str_field ────────────────────────────────────────────────
 
     #[test]

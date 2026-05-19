@@ -343,6 +343,92 @@ mod tests {
         assert!(parsed.cwd.is_none());
     }
 
+    #[test]
+    fn test_skips_malformed_json_and_unknown_types() {
+        // Mirrors the TypeScript comprehensive rollout test: empty lines, malformed JSON,
+        // unknown record types, injected prefixes, and valid messages all in one file.
+        let line_user = serde_json::json!({
+            "type": "response_item",
+            "payload": {"type": "message", "role": "user", "content": [{"type": "text", "text": "What is Rust?"}]}
+        }).to_string();
+        let line_assistant = serde_json::json!({
+            "type": "response_item",
+            "payload": {"type": "message", "role": "assistant", "content": [{"type": "text", "text": "A systems language."}]}
+        }).to_string();
+        let line_developer = serde_json::json!({
+            "type": "response_item",
+            "payload": {"type": "message", "role": "developer", "content": [{"type": "text", "text": "injected config"}]}
+        }).to_string();
+        let line_injected_prefix = serde_json::json!({
+            "type": "response_item",
+            "payload": {"type": "message", "role": "user", "content": [{"type": "text", "text": "<permissions instructions>do not harm</permissions instructions>"}]}
+        }).to_string();
+        let line_unknown_type = serde_json::json!({
+            "type": "unknown_record",
+            "payload": {"data": "ignored"}
+        }).to_string();
+        let line_meta = serde_json::json!({
+            "type": "session_meta",
+            "payload": {"cwd": "/workspace/project", "id": "sess-xyz"}
+        }).to_string();
+
+        let raw = format!(
+            "\n\
+             not-json-at-all\n\
+             {line_meta}\n\
+             \n\
+             {line_developer}\n\
+             {line_injected_prefix}\n\
+             {line_unknown_type}\n\
+             {line_user}\n\
+             {line_assistant}\n\
+             {{broken\n"
+        );
+
+        let parsed = parse_codex_rollout(&raw, true);
+        assert_eq!(parsed.cwd.as_deref(), Some("/workspace/project"));
+        assert_eq!(parsed.session_id.as_deref(), Some("sess-xyz"));
+        // Only the two real messages should survive
+        assert_eq!(parsed.messages.len(), 2);
+        assert_eq!(parsed.messages[0].role, "user");
+        assert_eq!(parsed.messages[0].content, "What is Rust?");
+        assert_eq!(parsed.messages[1].role, "assistant");
+        assert_eq!(parsed.messages[1].content, "A systems language.");
+    }
+
+    #[test]
+    fn test_injected_prefix_filters_entire_message() {
+        // In TypeScript the extractor strips the injected block and keeps any trailing
+        // real text.  In Rust we use a simpler prefix-only check: a message that STARTS
+        // with an injected prefix is dropped entirely, even if it has trailing content.
+        // This test documents and locks in that Rust behaviour.
+        let text = "<permissions instructions>rules</permissions instructions>\nActual user question";
+        let line = serde_json::json!({
+            "type": "response_item",
+            "payload": {"type": "message", "role": "user", "content": [{"type": "text", "text": text}]}
+        }).to_string();
+        let parsed = parse_codex_rollout(&format!("{line}\n"), true);
+        // Rust drops the whole message; TypeScript would have kept "Actual user question".
+        assert!(parsed.messages.is_empty());
+    }
+
+    #[test]
+    fn test_multi_part_content_joined() {
+        let line = serde_json::json!({
+            "type": "response_item",
+            "payload": {
+                "type": "message", "role": "user",
+                "content": [
+                    {"type": "text", "text": "Hello"},
+                    {"type": "text", "text": " world"}
+                ]
+            }
+        }).to_string();
+        let parsed = parse_codex_rollout(&format!("{line}\n"), true);
+        assert_eq!(parsed.messages.len(), 1);
+        assert_eq!(parsed.messages[0].content, "Hello world");
+    }
+
     // ── normalize_path ────────────────────────────────────────────────────────
 
     #[test]

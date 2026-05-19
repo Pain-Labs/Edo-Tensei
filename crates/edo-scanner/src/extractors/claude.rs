@@ -243,3 +243,119 @@ fn slug_to_workspace_path(slug: &str) -> Option<String> {
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_extract_user_message() {
+        let record = json!({
+            "type": "user",
+            "timestamp": "2024-01-15T09:30:00.000Z",
+            "message": {
+                "content": [{"type": "text", "text": "Hello, Claude!"}]
+            }
+        });
+        let msg = extract_message_from_record(&record).unwrap();
+        assert_eq!(msg.role, "user");
+        assert_eq!(msg.content, "Hello, Claude!");
+        assert_eq!(msg.timestamp.as_deref(), Some("2024-01-15T09:30:00.000Z"));
+    }
+
+    #[test]
+    fn test_extract_assistant_message() {
+        let record = json!({
+            "type": "assistant",
+            "message": {
+                "content": [{"type": "text", "text": "How can I help?"}]
+            }
+        });
+        let msg = extract_message_from_record(&record).unwrap();
+        assert_eq!(msg.role, "assistant");
+        assert_eq!(msg.content, "How can I help?");
+    }
+
+    #[test]
+    fn test_skip_tool_result() {
+        let record = json!({
+            "type": "user",
+            "message": {
+                "content": [{"type": "tool_result", "tool_use_id": "abc"}]
+            }
+        });
+        assert!(extract_message_from_record(&record).is_none());
+    }
+
+    #[test]
+    fn test_skip_system_type() {
+        let record = json!({
+            "type": "system",
+            "message": {"content": [{"type": "text", "text": "System prompt"}]}
+        });
+        assert!(extract_message_from_record(&record).is_none());
+    }
+
+    #[test]
+    fn test_thinking_merged_with_text() {
+        let record = json!({
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "thinking", "thinking": "Let me think..."},
+                    {"type": "text", "text": "The answer is 42."}
+                ]
+            }
+        });
+        let msg = extract_message_from_record(&record).unwrap();
+        assert!(msg.content.contains("Let me think..."));
+        assert!(msg.content.contains("The answer is 42."));
+    }
+
+    #[test]
+    fn test_angle_brackets_stripped() {
+        let record = json!({
+            "type": "user",
+            "message": {"content": [{"type": "text", "text": "Hello <world>!"}]}
+        });
+        let msg = extract_message_from_record(&record).unwrap();
+        assert!(!msg.content.contains('<'));
+        assert!(!msg.content.contains('>'));
+        assert!(msg.content.contains("Hello"));
+        assert!(msg.content.contains("world"));
+    }
+
+    #[test]
+    fn test_empty_content_returns_none() {
+        let record = json!({
+            "type": "user",
+            "message": {"content": [{"type": "text", "text": "   "}]}
+        });
+        assert!(extract_message_from_record(&record).is_none());
+    }
+
+    #[test]
+    fn test_slug_unix_path() {
+        // Dashes in slug map to path separators, so "myproject" has no dash in it.
+        assert_eq!(
+            slug_to_workspace_path("-home-user-myproject"),
+            Some("/home/user/myproject".to_string())
+        );
+    }
+
+    #[test]
+    fn test_slug_no_match() {
+        assert_eq!(slug_to_workspace_path("somename"), None);
+    }
+
+    #[test]
+    fn test_slug_matches_workspace_substring() {
+        assert!(slug_matches_workspace("c--users-foo-myproject", "myproject"));
+    }
+
+    #[test]
+    fn test_slug_no_match_workspace() {
+        assert!(!slug_matches_workspace("-home-user-other", "/home/user/project"));
+    }
+}

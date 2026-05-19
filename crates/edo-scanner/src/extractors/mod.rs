@@ -74,3 +74,51 @@ fn days_to_ymd(mut days: u32) -> (u32, u32, u32) {
     let y = if mo <= 2 { y + 1 } else { y };
     (y, mo, d)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_epoch_zero() {
+        assert_eq!(mtime_to_iso(0), "1970-01-01T00:00:00.000Z");
+    }
+
+    #[test]
+    fn test_one_second() {
+        assert_eq!(mtime_to_iso(1_000), "1970-01-01T00:00:01.000Z");
+    }
+
+    #[test]
+    fn test_one_minute() {
+        assert_eq!(mtime_to_iso(60_000), "1970-01-01T00:01:00.000Z");
+    }
+
+    #[test]
+    fn test_one_hour() {
+        assert_eq!(mtime_to_iso(3_600_000), "1970-01-01T01:00:00.000Z");
+    }
+
+    #[test]
+    fn test_one_day() {
+        assert_eq!(mtime_to_iso(86_400_000), "1970-01-02T00:00:00.000Z");
+    }
+
+    #[test]
+    fn test_millisecond_precision() {
+        assert_eq!(mtime_to_iso(500), "1970-01-01T00:00:00.500Z");
+        assert_eq!(mtime_to_iso(1_999), "1970-01-01T00:00:01.999Z");
+    }
+
+    #[test]
+    fn test_known_date_2024_jan_01() {
+        // 2024-01-01T00:00:00Z = 1704067200 seconds
+        assert_eq!(mtime_to_iso(1_704_067_200_000), "2024-01-01T00:00:00.000Z");
+    }
+
+    #[test]
+    fn test_leap_year_feb_29() {
+        // 2024-02-29T00:00:00Z = 1709164800 seconds
+        assert_eq!(mtime_to_iso(1_709_164_800_000), "2024-02-29T00:00:00.000Z");
+    }
+}

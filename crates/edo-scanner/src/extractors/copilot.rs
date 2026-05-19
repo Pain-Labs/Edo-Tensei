@@ -497,3 +497,114 @@ fn extract_json_str_field(text: &str, field: &str) -> Option<String> {
     let end = rest.find('"')?;
     Some(rest[..end].to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    // ── extract_json_str_field ────────────────────────────────────────────────
+
+    #[test]
+    fn test_extract_session_id() {
+        let line = r#"{"kind":0,"v":{"sessionId":"abc-123","requests":[]}}"#;
+        assert_eq!(extract_json_str_field(line, "sessionId"), Some("abc-123".to_string()));
+    }
+
+    #[test]
+    fn test_extract_custom_title() {
+        let line = r#"{"kind":0,"v":{"sessionId":"x","customTitle":"My Session","requests":[]}}"#;
+        assert_eq!(extract_json_str_field(line, "customTitle"), Some("My Session".to_string()));
+    }
+
+    #[test]
+    fn test_extract_missing_field() {
+        let line = r#"{"kind":0,"v":{"requests":[]}}"#;
+        assert_eq!(extract_json_str_field(line, "sessionId"), None);
+    }
+
+    // ── workspace_matches ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_workspace_matches_exact() {
+        assert!(workspace_matches("/home/user/project", "/home/user/project"));
+    }
+
+    #[test]
+    fn test_workspace_matches_substring() {
+        assert!(workspace_matches("/home/user/my-project", "my-project"));
+    }
+
+    #[test]
+    fn test_workspace_matches_case_insensitive() {
+        assert!(workspace_matches("/Home/User/Project", "/home/user/project"));
+    }
+
+    #[test]
+    fn test_workspace_no_match() {
+        assert!(!workspace_matches("/home/user/other", "/home/user/project"));
+    }
+
+    #[test]
+    fn test_workspace_matches_backslash_normalized() {
+        assert!(workspace_matches("C:\\Users\\foo\\project", "C:/Users/foo/project"));
+    }
+
+    // ── parse_requests ────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_parse_requests_user_and_assistant() {
+        let requests = vec![json!({
+            "message": {"text": "What is Rust?"},
+            "response": [{"value": "Rust is a systems language."}]
+        })];
+        let messages = parse_requests(&requests);
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0].role, "user");
+        assert_eq!(messages[0].content, "What is Rust?");
+        assert_eq!(messages[1].role, "assistant");
+        assert!(messages[1].content.contains("Rust is a systems"));
+    }
+
+    #[test]
+    fn test_parse_requests_empty_response() {
+        let requests = vec![json!({"message": {"text": "Hello"}, "response": []})];
+        let messages = parse_requests(&requests);
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].role, "user");
+    }
+
+    #[test]
+    fn test_parse_requests_skips_empty_user_text() {
+        let requests = vec![json!({"message": {"text": "   "}, "response": []})];
+        let messages = parse_requests(&requests);
+        assert!(messages.is_empty());
+    }
+
+    #[test]
+    fn test_parse_requests_response_with_kind_field_skipped() {
+        // Parts with a "kind" field are UI hints, not text content
+        let requests = vec![json!({
+            "message": {"text": "Hello"},
+            "response": [
+                {"kind": "markdownContent", "value": "should be skipped"},
+                {"value": "real content"}
+            ]
+        })];
+        let messages = parse_requests(&requests);
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[1].content, "real content");
+    }
+
+    #[test]
+    fn test_parse_multiple_requests() {
+        let requests = vec![
+            json!({"message": {"text": "First"}, "response": [{"value": "Answer 1"}]}),
+            json!({"message": {"text": "Second"}, "response": [{"value": "Answer 2"}]}),
+        ];
+        let messages = parse_requests(&requests);
+        assert_eq!(messages.len(), 4);
+        assert_eq!(messages[0].content, "First");
+        assert_eq!(messages[2].content, "Second");
+    }
+}

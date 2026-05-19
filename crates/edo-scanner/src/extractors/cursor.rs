@@ -167,3 +167,72 @@ fn extract_message(obj: &Value) -> Option<ChatMessage> {
 
     Some(ChatMessage { role, content: trimmed, thought: None, timestamp: None })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_extract_user_message() {
+        let obj = json!({
+            "role": "user",
+            "message": {
+                "content": [{"type": "text", "text": "What is Rust?"}]
+            }
+        });
+        let msg = extract_message(&obj).unwrap();
+        assert_eq!(msg.role, "user");
+        assert_eq!(msg.content, "What is Rust?");
+    }
+
+    #[test]
+    fn test_extract_assistant_message() {
+        let obj = json!({
+            "role": "assistant",
+            "message": {
+                "content": [
+                    {"type": "text", "text": "Rust is a "},
+                    {"type": "text", "text": "systems language."}
+                ]
+            }
+        });
+        let msg = extract_message(&obj).unwrap();
+        assert_eq!(msg.role, "assistant");
+        assert_eq!(msg.content, "Rust is a \nsystems language.");
+    }
+
+    #[test]
+    fn test_skip_non_text_content_types() {
+        let obj = json!({
+            "role": "user",
+            "message": {
+                "content": [
+                    {"type": "image", "url": "http://example.com/img.png"},
+                    {"type": "text", "text": "What's in this image?"}
+                ]
+            }
+        });
+        let msg = extract_message(&obj).unwrap();
+        assert_eq!(msg.content, "What's in this image?");
+    }
+
+    #[test]
+    fn test_empty_content_returns_none() {
+        let obj = json!({
+            "role": "user",
+            "message": {"content": [{"type": "text", "text": "   "}]}
+        });
+        assert!(extract_message(&obj).is_none());
+    }
+
+    #[test]
+    fn test_unknown_role_passthrough() {
+        let obj = json!({
+            "role": "tool",
+            "message": {"content": [{"type": "text", "text": "output"}]}
+        });
+        let msg = extract_message(&obj).unwrap();
+        assert_eq!(msg.role, "tool");
+    }
+}

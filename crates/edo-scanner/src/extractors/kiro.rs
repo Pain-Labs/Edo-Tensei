@@ -357,3 +357,200 @@ fn workspace_matches(resolved: &str, filter: &str) -> bool {
     let f = filter.replace('\\', "/").to_lowercase();
     r.contains(&f) || f.contains(&r)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── is_hex_hash ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_valid_hex_hash() {
+        assert!(is_hex_hash("a1b2c3d4e5f6789012345678901234ab"));
+    }
+
+    #[test]
+    fn test_hex_hash_too_short() {
+        assert!(!is_hex_hash("a1b2c3d4"));
+    }
+
+    #[test]
+    fn test_hex_hash_too_long() {
+        assert!(!is_hex_hash("a1b2c3d4e5f6789012345678901234abcd"));
+    }
+
+    #[test]
+    fn test_hex_hash_non_hex_chars() {
+        assert!(!is_hex_hash("a1b2c3d4e5f6789012345678901234gz"));
+    }
+
+    // ── decode_base64url_path ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_decode_known_unix_path() {
+        use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        use base64::Engine as _;
+        let path = "/home/user/my-project";
+        let encoded = URL_SAFE_NO_PAD.encode(path);
+        let decoded = decode_base64url_path(&encoded).unwrap();
+        assert_eq!(decoded, path);
+    }
+
+    #[test]
+    fn test_decode_with_padding() {
+        use base64::engine::general_purpose::URL_SAFE;
+        use base64::Engine as _;
+        let path = "/home/user/project";
+        // encode with padding
+        let encoded_padded = URL_SAFE.encode(path);
+        // strip padding to simulate how Kiro stores it
+        let no_pad = encoded_padded.trim_end_matches('=');
+        let decoded = decode_base64url_path(no_pad).unwrap();
+        assert_eq!(decoded, path);
+    }
+
+    #[test]
+    fn test_decode_invalid_returns_none() {
+        assert_eq!(decode_base64url_path("!!!invalid!!!"), None);
+    }
+
+    // ── is_ack_only ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_ack_messages() {
+        assert!(is_ack_only("On it."));
+        assert!(is_ack_only("Understood."));
+        assert!(is_ack_only("I will follow these instructions."));
+    }
+
+    #[test]
+    fn test_non_ack_message() {
+        assert!(!is_ack_only("Sure, here's how to fix the bug:"));
+        assert!(!is_ack_only(""));
+    }
+
+    // ── parse_legacy_chat ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_parse_basic_conversation() {
+        let raw = r#"{"chat":[
+            {"role":"human","content":"What is Rust?"},
+            {"role":"bot","content":"Rust is a systems language."}
+        ]}"#;
+        let messages = parse_legacy_chat(raw, true);
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0].role, "user");
+        assert_eq!(messages[0].content, "What is Rust?");
+        assert_eq!(messages[1].role, "assistant");
+    }
+
+    #[test]
+    fn test_skips_ack_only_bot_replies() {
+        let raw = r#"{"chat":[
+            {"role":"human","content":"Do this task"},
+            {"role":"bot","content":"On it."}
+        ]}"#;
+        let messages = parse_legacy_chat(raw, true);
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].content, "Do this task");
+    }
+
+    #[test]
+    fn test_skips_tool_role() {
+        let raw = r#"{"chat":[
+            {"role":"tool","content":"tool output"},
+            {"role":"human","content":"What did the tool return?"}
+        ]}"#;
+        let messages = parse_legacy_chat(raw, true);
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].role, "user");
+    }
+
+    #[test]
+    fn test_lazy_mode_first_message_only() {
+        let raw = r#"{"chat":[
+            {"role":"human","content":"First"},
+            {"role":"human","content":"Second"}
+        ]}"#;
+        let messages = parse_legacy_chat(raw, false);
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].content, "First");
+    }
+
+    #[test]
+    fn test_strips_system_prompt_prefix() {
+        // Avoid raw-string "# sequences by building JSON with serde_json
+        let raw = serde_json::json!({
+            "chat": [
+                {"role": "human", "content": "# System Prompt\nDo this instead"},
+                {"role": "human", "content": "real message"}
+            ]
+        })
+        .to_string();
+        let messages = parse_legacy_chat(&raw, true);
+        // The system prompt message is stripped entirely
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].content, "real message");
+    }
+
+    // ── parse_ws_session_lazy ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_ws_session_lazy_basic() {
+        let raw = r#"{
+            "workspaceDirectory": "/home/user/project",
+            "history": [
+                {"message": {"role": "user", "content": [{"type": "text", "text": "Help me debug"}]}},
+                {"message": {"role": "assistant", "content": "On it."}}
+            ]
+        }"#;
+        let (first_msg, ws_dir) = parse_ws_session_lazy(raw);
+        assert_eq!(ws_dir.as_deref(), Some("/home/user/project"));
+        assert_eq!(first_msg.unwrap().content, "Help me debug");
+    }
+
+    #[test]
+    fn test_ws_session_lazy_string_content() {
+        let raw = r#"{
+            "workspaceDirectory": "/home/user/project",
+            "history": [
+                {"message": {"role": "user", "content": "plain string message"}}
+            ]
+        }"#;
+        let (first_msg, _) = parse_ws_session_lazy(raw);
+        assert_eq!(first_msg.unwrap().content, "plain string message");
+    }
+
+    #[test]
+    fn test_ws_session_lazy_no_user_message() {
+        let raw = r#"{
+            "workspaceDirectory": "/home/user/project",
+            "history": [
+                {"message": {"role": "assistant", "content": "Hello!"}}
+            ]
+        }"#;
+        let (first_msg, ws_dir) = parse_ws_session_lazy(raw);
+        assert!(first_msg.is_none());
+        assert_eq!(ws_dir.as_deref(), Some("/home/user/project"));
+    }
+
+    // ── parse_ws_session_full ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_ws_session_full_conversation() {
+        let raw = r#"{
+            "workspaceDirectory": "/home/user/project",
+            "history": [
+                {"message": {"role": "user", "content": [{"type": "text", "text": "Question 1"}]}},
+                {"message": {"role": "assistant", "content": "Answer 1"}},
+                {"message": {"role": "user", "content": [{"type": "text", "text": "Question 2"}]}}
+            ]
+        }"#;
+        let (messages, ws_dir) = parse_ws_session_full(raw);
+        assert_eq!(ws_dir.as_deref(), Some("/home/user/project"));
+        assert_eq!(messages.len(), 3);
+        assert_eq!(messages[0].role, "user");
+        assert_eq!(messages[1].role, "assistant");
+        assert_eq!(messages[2].role, "user");
+    }
+}

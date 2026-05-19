@@ -78,3 +78,79 @@ fn normalize_since(since: &str) -> String {
         since.to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{CapturedSession, ChatMessage};
+
+    fn make_session(title: Option<&str>, workspace: Option<&str>, first_message: Option<&str>) -> CapturedSession {
+        CapturedSession {
+            source_ide: "claude".into(),
+            captured_at: "2024-01-15T09:30:00.000Z".into(),
+            session_id: None,
+            title: title.map(String::from),
+            workspace_path: workspace.map(String::from),
+            messages: first_message
+                .map(|m| vec![ChatMessage { role: "user".into(), content: m.into(), ..Default::default() }])
+                .unwrap_or_default(),
+            messages_loaded: false,
+            file_size_bytes: None,
+            raw_path: "/tmp/session.jsonl".into(),
+            read_status: "success".into(),
+            error_detail: None,
+        }
+    }
+
+    // ── normalize_since ───────────────────────────────────────────────────────
+
+    #[test]
+    fn test_normalize_date_only() {
+        assert_eq!(normalize_since("2024-01-01"), "2024-01-01T00:00:00.000Z");
+    }
+
+    #[test]
+    fn test_normalize_full_iso_unchanged() {
+        let full = "2024-01-01T12:00:00Z";
+        assert_eq!(normalize_since(full), full);
+    }
+
+    // ── session_matches_query ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_matches_by_title() {
+        let s = make_session(Some("My Rust Project"), None, None);
+        assert!(session_matches_query(&s, "rust"));
+        assert!(!session_matches_query(&s, "python"));
+    }
+
+    #[test]
+    fn test_matches_by_workspace() {
+        let s = make_session(None, Some("/home/user/my-project"), None);
+        assert!(session_matches_query(&s, "my-project"));
+        assert!(!session_matches_query(&s, "other-project"));
+    }
+
+    #[test]
+    fn test_matches_by_first_message() {
+        let s = make_session(None, None, Some("Fix the authentication bug"));
+        assert!(session_matches_query(&s, "authentication"));
+        assert!(!session_matches_query(&s, "performance"));
+    }
+
+    #[test]
+    fn test_query_already_lowercased() {
+        // session_matches_query receives a pre-lowercased query (run_scan lowercases it).
+        let s = make_session(Some("Rust Tutorial"), None, None);
+        assert!(session_matches_query(&s, "rust"));
+        assert!(session_matches_query(&s, "tutorial"));
+        // Uppercase does NOT match because the function expects lowercase input.
+        assert!(!session_matches_query(&s, "RUST"));
+    }
+
+    #[test]
+    fn test_no_match_empty_session() {
+        let s = make_session(None, None, None);
+        assert!(!session_matches_query(&s, "anything"));
+    }
+}

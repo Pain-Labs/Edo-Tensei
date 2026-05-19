@@ -238,3 +238,120 @@ fn is_injected_message(role: &str, text: &str) -> bool {
 fn normalize_path(p: &str) -> String {
     p.replace('\\', "/").to_lowercase()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── is_injected_message ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_developer_role_always_injected() {
+        assert!(is_injected_message("developer", "anything"));
+    }
+
+    #[test]
+    fn test_system_role_always_injected() {
+        assert!(is_injected_message("system", "anything"));
+    }
+
+    #[test]
+    fn test_turn_aborted_injected() {
+        assert!(is_injected_message("user", "<turn_aborted>some reason</turn_aborted>"));
+    }
+
+    #[test]
+    fn test_permissions_prefix_injected() {
+        assert!(is_injected_message("user", "<permissions instructions>...</permissions instructions>"));
+    }
+
+    #[test]
+    fn test_agents_md_injected() {
+        assert!(is_injected_message("user", "# AGENTS.md instructions for this repo"));
+    }
+
+    #[test]
+    fn test_normal_user_message_not_injected() {
+        assert!(!is_injected_message("user", "Can you help me with this bug?"));
+    }
+
+    #[test]
+    fn test_normal_assistant_message_not_injected() {
+        assert!(!is_injected_message("assistant", "Sure, here's how you fix it."));
+    }
+
+    // ── parse_codex_rollout ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_parse_session_meta_and_messages() {
+        let jsonl = concat!(
+            r#"{"type":"session_meta","payload":{"cwd":"/home/user/project","id":"sess-abc"}}"#, "\n",
+            r#"{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"text","text":"Write hello world"}]}}"#, "\n",
+            r#"{"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"text","text":"Here it is:"}]}}"#, "\n",
+        );
+        let parsed = parse_codex_rollout(jsonl, true);
+        assert_eq!(parsed.cwd.as_deref(), Some("/home/user/project"));
+        assert_eq!(parsed.session_id.as_deref(), Some("sess-abc"));
+        assert_eq!(parsed.messages.len(), 2);
+        assert_eq!(parsed.messages[0].role, "user");
+        assert_eq!(parsed.messages[0].content, "Write hello world");
+        assert_eq!(parsed.messages[1].role, "assistant");
+    }
+
+    #[test]
+    fn test_skips_developer_injected_messages() {
+        let jsonl = concat!(
+            r#"{"type":"response_item","payload":{"type":"message","role":"developer","content":[{"type":"text","text":"system config"}]}}"#, "\n",
+            r#"{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"text","text":"real question"}]}}"#, "\n",
+        );
+        let parsed = parse_codex_rollout(jsonl, true);
+        assert_eq!(parsed.messages.len(), 1);
+        assert_eq!(parsed.messages[0].content, "real question");
+    }
+
+    #[test]
+    fn test_extracts_ide_context_request() {
+        // \n must be actual newlines so the parser can find the marker
+        let text = "# Context from my IDE setup:\n## My request for Codex:\nFix the bug";
+        let line = serde_json::json!({
+            "type": "response_item",
+            "payload": {
+                "type": "message", "role": "user",
+                "content": [{"type": "text", "text": text}]
+            }
+        })
+        .to_string();
+        let parsed = parse_codex_rollout(&format!("{line}\n"), true);
+        assert_eq!(parsed.messages.len(), 1);
+        assert_eq!(parsed.messages[0].content, "Fix the bug");
+    }
+
+    #[test]
+    fn test_skips_non_message_response_items() {
+        let jsonl = concat!(
+            r#"{"type":"response_item","payload":{"type":"function_call","role":"assistant","content":[]}}"#, "\n",
+            r#"{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"text","text":"hello"}]}}"#, "\n",
+        );
+        let parsed = parse_codex_rollout(jsonl, true);
+        assert_eq!(parsed.messages.len(), 1);
+    }
+
+    #[test]
+    fn test_empty_jsonl() {
+        let parsed = parse_codex_rollout("", true);
+        assert!(parsed.messages.is_empty());
+        assert!(parsed.cwd.is_none());
+    }
+
+    // ── normalize_path ────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_normalize_path_backslash() {
+        assert_eq!(normalize_path("C:\\Users\\foo"), "c:/users/foo");
+    }
+
+    #[test]
+    fn test_normalize_path_lowercase() {
+        assert_eq!(normalize_path("/Home/User/Project"), "/home/user/project");
+    }
+}

@@ -13,6 +13,7 @@ import { CodexExtractor } from './extractors/CodexExtractor';
 import { SessionSearchEngine, SessionSearchMatch, SessionSearchQuery } from './SessionSearchEngine';
 
 export class SessionHandoffService {
+    private static readonly EXTRACTOR_SCAN_CONCURRENCY = 2;
     private extractors: IChatExtractor[];
     private cachedSessions: CapturedSession[] = [];
     private allSessions: CapturedSession[] = [];
@@ -91,8 +92,7 @@ export class SessionHandoffService {
             return [];
         }
 
-        await Promise.all(
-            this.extractors.map(async (e) => {
+        await this.scanExtractorsWithLimitedConcurrency(async (e) => {
                 try {
                     const customPaths = this.getCustomPaths(e.ideId);
 
@@ -132,8 +132,7 @@ export class SessionHandoffService {
                     this._onDidUpdateSessions.fire();
                     console.error(`[SessionHandoffService] Error extracting from ${e.ideId}:`, err);
                 }
-            })
-        );
+        });
 
         this.cachedSessions.sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
         this.scanning = false;
@@ -154,8 +153,7 @@ export class SessionHandoffService {
         }
         this._onDidUpdateSessions.fire(); // Clear UI immediately
 
-        await Promise.all(
-            this.extractors.map(async (e) => {
+        await this.scanExtractorsWithLimitedConcurrency(async (e) => {
                 try {
                     // Fetch-all should not be constrained by current workspace.
                     const sessions = await e.extractAll(undefined, this.getCustomPaths(e.ideId));
@@ -172,8 +170,7 @@ export class SessionHandoffService {
                     this._onDidUpdateSessions.fire();
                     console.error(`[SessionHandoffService] Error extracting all from ${e.ideId}:`, err);
                 }
-            })
-        );
+        });
 
         this.allSessions.sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
         this.scanning = false;
@@ -186,6 +183,29 @@ export class SessionHandoffService {
      */
     async scanAllIDEs(): Promise<CapturedSession[]> {
         return this.scanProjectSessions();
+    }
+
+    private async scanExtractorsWithLimitedConcurrency(
+        worker: (extractor: IChatExtractor) => Promise<void>
+    ): Promise<void> {
+        const queue = [...this.extractors];
+        const concurrency = Math.max(
+            1,
+            Math.min(SessionHandoffService.EXTRACTOR_SCAN_CONCURRENCY, queue.length)
+        );
+
+        await Promise.all(
+            Array.from({ length: concurrency }, async () => {
+                while (queue.length > 0) {
+                    const extractor = queue.shift();
+                    if (!extractor) {
+                        return;
+                    }
+                    await worker(extractor);
+                    await new Promise<void>((resolve) => setImmediate(resolve));
+                }
+            })
+        );
     }
 
     getSessions(): CapturedSession[] {
@@ -893,4 +913,3 @@ export class SessionHandoffService {
         session.messagesLoaded = true;
     }
 }
-

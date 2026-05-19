@@ -3,6 +3,7 @@ import os from 'os'
 import path from 'path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CodexExtractor } from '../../core/extractors/CodexExtractor'
+import { ClaudeExtractor } from '../../core/extractors/ClaudeExtractor'
 import { SessionHandoffProvider } from '../../ui/SessionHandoffProvider'
 
 function codexMessage(timestamp: string, role: string, text: string): string {
@@ -61,6 +62,71 @@ describe('angle bracket sanitization', () => {
 
     expect(title).not.toContain('<')
     expect(title).not.toContain('>')
+  })
+
+  it('Claude extractor removes angle brackets from text content items', () => {
+    const extractor = new ClaudeExtractor()
+    const record = {
+      type: 'user',
+      message: {
+        content: [
+          {
+            type: 'text',
+            text: '<script>alert(1)</script> user input',
+          },
+        ],
+      },
+    }
+
+    const msg = (extractor as any).extractMessageFromRecord(record)
+
+    expect(msg?.content).toBe('scriptalert(1)/script user input')
+    expect(msg?.content).not.toContain('<')
+    expect(msg?.content).not.toContain('>')
+  })
+
+  it('Claude extractor preserves non-bracket content when sanitizing', () => {
+    const extractor = new ClaudeExtractor()
+    const record = {
+      type: 'assistant',
+      message: {
+        content: [
+          {
+            type: 'text',
+            text: '<function>processData</function> returns a result',
+          },
+        ],
+      },
+    }
+
+    const msg = (extractor as any).extractMessageFromRecord(record)
+
+    expect(msg?.content).toContain('processData')
+    expect(msg?.content).toContain('returns a result')
+    expect(msg?.content).not.toContain('<')
+    expect(msg?.content).not.toContain('>')
+  })
+
+  it('Claude extractor respects maxItemChars truncation after bracket removal', () => {
+    const extractor = new ClaudeExtractor()
+    const record = {
+      type: 'user',
+      message: {
+        content: [
+          {
+            type: 'text',
+            text: '<tag>short',
+          },
+        ],
+      },
+    }
+
+    const msg = (extractor as any).extractMessageFromRecord(record, 5)
+
+    expect(msg?.content).toContain('tagsh')
+    expect(msg?.content).toContain('...[truncated 3 chars]')
+    expect(msg?.content).not.toContain('<')
+    expect(msg?.content).not.toContain('>')
   })
 
   it('filters pure Codex injected blocks without multi-character tag sanitizers', () => {

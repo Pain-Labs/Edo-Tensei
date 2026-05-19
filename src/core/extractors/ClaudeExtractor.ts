@@ -238,8 +238,7 @@ export class ClaudeExtractor implements IChatExtractor {
       if (c.type === 'tool_result') continue;
       if (c.type === 'text' || typeof c.text === 'string') {
         let stripped = (c.text || '')
-          .replace(/<[^>]+>[\s\S]*?<\/[^>]+>/g, '')
-          .replace(/<[^>]+>/g, '')
+          .replace(/[<>]/g, '')
           .trim();
         if (maxItemChars && stripped.length > maxItemChars) {
           stripped = stripped.slice(0, maxItemChars) + `\n...[truncated ${stripped.length - maxItemChars} chars]`;

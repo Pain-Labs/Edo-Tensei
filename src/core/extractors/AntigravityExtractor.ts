@@ -148,6 +148,13 @@ export class AntigravityExtractor implements IChatExtractor {
         // User messages
         if ((obj.source === 'USER' || obj.source === 'USER_EXPLICIT') && (obj.input || obj.content || obj.text)) {
           let content = obj.input || obj.content || obj.text || '';
+          // Antigravity wraps the user's actual text in <USER_REQUEST>...</USER_REQUEST>.
+          // Extract only that portion and discard surrounding system metadata sections
+          // (<ADDITIONAL_METADATA>, <USER_SETTINGS_CHANGE>, etc.).
+          const userRequestMatch = content.match(/<USER_REQUEST>([\s\S]*?)<\/USER_REQUEST>/i);
+          if (userRequestMatch) {
+            content = userRequestMatch[1].trim();
+          }
           // 偵測 Antigravity overview.txt 的截斷標記，但不將其隱藏
           const truncMatch = content.match(/<truncated \d+ bytes>\s*$/);
           if (truncMatch) {

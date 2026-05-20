@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { SessionHandoffService } from '../../core/SessionHandoffService'
 import { CapturedSession, IChatExtractor } from '../../core/extractors/types'
+import * as path from 'path'
 
 function wait(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -94,5 +95,37 @@ describe('SessionHandoffService', () => {
       { limit: 301, offset: 300 },
     ])
     expect(service.hasPendingSessions('copilot')).toBe(false)
+  })
+})
+
+describe('SessionHandoffService.buildReadableTranscript', () => {
+  it('puts workspace path on the second line when workspacePath is set', () => {
+    const service = new SessionHandoffService({} as any)
+    const s = buildSession('claude')
+    s.workspacePath = 'C:\\Users\\kwz50\\Edo-Tensei'
+
+    const lines = service.buildReadableTranscript(s).split('\n')
+
+    expect(lines[0]).toMatch(/^# Claude/)
+    expect(lines[0]).toContain(path.basename(s.workspacePath))
+    expect(lines[1]).toBe(s.workspacePath)
+  })
+
+  it('omits the workspace path line when workspacePath is absent', () => {
+    const service = new SessionHandoffService({} as any)
+    const s = buildSession('claude')
+
+    const lines = service.buildReadableTranscript(s).split('\n')
+
+    expect(lines[0]).toBe('# Claude')
+    // Second line is the messages header (I18n key fallback), not a filesystem path
+    expect(lines[1]).not.toMatch(/^[A-Z]:\\/)
+    expect(lines[1]).not.toMatch(/^\/[a-z]/)
+  })
+
+  it('capitalises the IDE name in the header', () => {
+    const service = new SessionHandoffService({} as any)
+    const transcript = service.buildReadableTranscript(buildSession('copilot'))
+    expect(transcript).toMatch(/^# Copilot/)
   })
 })

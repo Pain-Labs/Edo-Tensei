@@ -52,6 +52,33 @@ function resolveProjectName(session: CapturedSession): string | undefined {
     return undefined;
 }
 
+/** 建立統一格式的 MarkdownString tooltip，供 SessionItem 初始化與 resolveTreeItem 共用 */
+function buildSessionTooltip(
+    session: CapturedSession,
+    displayTitle: string,
+    messageCount: string,
+    tokenLabel: string,
+    isEstimated: boolean
+): vscode.MarkdownString {
+    const date = new Date(session.capturedAt);
+    const projectName = resolveProjectName(session);
+    const ideName = session.sourceIde.charAt(0).toUpperCase() + session.sourceIde.slice(1);
+    const truncated = displayTitle.length > 60 ? displayTitle.substring(0, 60) + '…' : displayTitle;
+    const tokenSuffix = isEstimated ? ' est.' : '';
+
+    const metaLines: string[] = [];
+    if (projectName) metaLines.push(`**專案** ${projectName}`);
+    if (session.workspacePath) metaLines.push(`**路徑** ${session.workspacePath}`);
+    metaLines.push(`**IDE** ${ideName}`);
+    metaLines.push(`**時間** ${date.toLocaleString()}`);
+    metaLines.push(`**訊息數** ${messageCount} 則（${tokenLabel} tokens${tokenSuffix}）`);
+    if (session.rawPath) metaLines.push(`**檔案** \`${session.rawPath}\``);
+
+    const tip = new vscode.MarkdownString(`**${truncated}**\n\n${metaLines.join('  \n')}`);
+    tip.supportHtml = false;
+    return tip;
+}
+
 // ── TreeItem 定義 ───────────────────────────────────────────────────────────
 
 export class IDEParentItem extends vscode.TreeItem {
@@ -130,36 +157,16 @@ export class SessionItem extends vscode.TreeItem {
             this.description = timeLabel;
         }
 
-        const projectName = showProject ? resolveProjectName(session) : (session.workspacePath ? path.basename(session.workspacePath) : 'Unknown Workspace');
-        const truncatedTitle = displayTitle.length > 50 ? displayTitle.substring(0, 50) + '...' : displayTitle;
-
         if (isLazyLoadEnabled() && session.messagesLoaded === false) {
-            // Lazy mode: 優先用檔案大小估算 token，無需 hover
             const tokenLabel = session.fileSizeBytes
                 ? estimateTokenLabelFromSize(session.fileSizeBytes)
                 : '—';
             const msgCount = session.messages.length > 0
                 ? `${session.messages.length}+`
                 : '—';
-                
-            this.tooltip = [
-                `📁 ${projectName || session.sourceIde}`,
-                `🕒 ${date.toLocaleString()}`,
-                `📝 ${truncatedTitle}`,
-                `💬 ${msgCount} messages`,
-                `⚡ ${tokenLabel} tokens (est.)`,
-                `${session.rawPath}`
-            ].join('\n');
+            this.tooltip = buildSessionTooltip(session, displayTitle, msgCount, tokenLabel, true);
         } else {
-            const tokenLabel = estimateTokenLabel(session.messages);
-            this.tooltip = [
-                `📁 ${projectName || session.sourceIde}`,
-                `🕒 ${date.toLocaleString()}`,
-                `📝 ${truncatedTitle}`,
-                `💬 ${session.messages.length} messages`,
-                `⚡ ${tokenLabel} tokens (est.)`,
-                `${session.rawPath}`
-            ].join('\n');
+            this.tooltip = buildSessionTooltip(session, displayTitle, String(session.messages.length), estimateTokenLabel(session.messages), false);
         }
         this.id = session.rawPath || `${session.sourceIde}-${session.capturedAt}`;
         this.iconPath = new vscode.ThemeIcon(isCurrentWorkspace ? 'home' : 'comment-discussion');
@@ -299,15 +306,14 @@ export class SessionHandoffProvider implements vscode.TreeDataProvider<vscode.Tr
         const session = element.session;
         await this.sessionService.ensureSessionMessagesLoaded(session);
 
-        const date = new Date(session.capturedAt);
-        const tokenLabel = estimateTokenLabel(session.messages);
-        item.tooltip = [
-            `Source: ${session.sourceIde}`,
-            `Project: ${session.workspacePath || 'Unknown'}`,
-            `Last Edit: ${date.toLocaleString()}`,
-            `Messages: ${session.messages.length}  •  ${tokenLabel} tokens (est.)`,
-            `Path: ${session.rawPath}`,
-        ].join('\n');
+        const displayTitle = session.title || SessionHandoffProvider.extractMeaningfulTitle(session.messages);
+        item.tooltip = buildSessionTooltip(
+            session,
+            displayTitle,
+            String(session.messages.length),
+            estimateTokenLabel(session.messages),
+            false
+        );
         return item;
     }
 

@@ -470,8 +470,8 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('edoTensei.exportAllSessions', async () => {
-            const sessions = sessionService.getSessions();
+        vscode.commands.registerCommand('edoTensei.exportAllSessions', async (item: IDEParentItem) => {
+            const sessions = sessionService.getGroupedSessions().get(item.ideId) ?? [];
             if (sessions.length === 0) {
                 vscode.window.showWarningMessage(I18n.getMessage('export.noSessions'));
                 return;

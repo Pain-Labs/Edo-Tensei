@@ -784,6 +784,7 @@ export class SessionHandoffService {
 
         const lines: string[] = [
             `# ${ideName}${projectName ? ` — ${projectName}` : ''}`,
+            ...(session.workspacePath ? [session.workspacePath] : []),
             I18n.getMessage('transcript.messages', dateStr, String(session.messages.length)),
             '',
         ];

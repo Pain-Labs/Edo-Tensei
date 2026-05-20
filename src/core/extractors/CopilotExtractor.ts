@@ -52,6 +52,13 @@ interface CopilotSession {
   requests?: CopilotRequest[];
 }
 
+interface CopilotSessionFileCandidate {
+  filePath: string;
+  workspacePath?: string;
+  mtimeMs: number;
+  size: number;
+}
+
 // ─── JSONL types ───────────────────────────────────────────────────────────────
 
 // 舊版格式：kind=0 的快照行，v 直接是 CopilotSession
@@ -63,6 +70,7 @@ interface CopilotJsonlLine {
 
 export class CopilotExtractor implements IChatExtractor {
   readonly ideId = 'copilot' as const;
+  readonly supportsPagedExtraction = true;
 
   private async tryResolveWorkspaceFileFolders(workspaceFilePath: string): Promise<string[]> {
     try {
@@ -180,93 +188,238 @@ export class CopilotExtractor implements IChatExtractor {
     return { sourceIde: this.ideId, capturedAt: new Date().toISOString(), messages: [], rawPath: emptyWindowDir, readStatus: 'empty' };
   }
 
-  async extractAll(_workspacePath?: string, customScanPaths: string[] = []): Promise<CapturedSession[]> {
-    const emptyWindowDirs = this.getBaseDirs();
-    const workspaceStorageDirs = this.getWorkspaceStorageDirs();
-    const allSessions: CapturedSession[] = [];
+  async extractAll(
+    _workspacePath?: string,
+    customScanPaths: string[] = [],
+    options: { limit?: number; offset?: number } = {}
+  ): Promise<CapturedSession[]> {
+    const offset = Math.max(0, options.offset ?? 0);
+    const limit = options.limit === undefined ? undefined : Math.max(0, options.limit);
+    const candidates = await this.collectSessionFileCandidates(
+      _workspacePath,
+      customScanPaths,
+      limit === undefined ? undefined : offset + limit
+    );
+    const selected = limit === undefined
+      ? candidates.slice(offset)
+      : candidates.slice(offset, offset + limit);
 
-    // 1. Scan empty window sessions and custom paths
-    const scanDirs = [...customScanPaths, ...emptyWindowDirs];
-    for (const dir of scanDirs) {
-      const sessions = await this.extractFromDir(dir);
-      allSessions.push(...sessions);
+    return this.extractFromCandidates(selected, limit !== undefined);
+  }
+
+  private async collectSessionFileCandidates(
+    workspacePath?: string,
+    customScanPaths: string[] = [],
+    maxCandidates?: number
+  ): Promise<CopilotSessionFileCandidate[]> {
+    const candidates: CopilotSessionFileCandidate[] = [];
+    const addCandidates = (items: CopilotSessionFileCandidate[]) => {
+      candidates.push(...items);
+      return maxCandidates !== undefined && candidates.length >= maxCandidates;
+    };
+
+    for (const dir of [...customScanPaths, ...this.getBaseDirs()]) {
+      if (addCandidates(await this.collectFilesFromDir(dir, undefined, maxCandidates))) {
+        return candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+      }
     }
 
-    // 2. Scan all workspace storage folders across all VS Code data dirs
-    for (const workspaceStorageDir of workspaceStorageDirs) {
+    for (const workspaceStorageDir of this.getWorkspaceStorageDirs()) {
       try {
         const rawEntries = await fs.readdir(workspaceStorageDir);
-
-        // 依 mtime 排序（最近修改的先處理），讓新 session 優先出現
         const entriesSorted = await this.listDirsByMtime(workspaceStorageDir, rawEntries);
-        const entries = entriesSorted.map(e => e.name);
 
-        // 限制外層並行數，避免同時開啟過多 fd 導致 I/O 互搶
-        const ENTRY_CONCURRENCY = 8;
-        const allEntryResults: CapturedSession[][] = [];
-        for (let i = 0; i < entries.length; i += ENTRY_CONCURRENCY) {
-          const chunk = entries.slice(i, i + ENTRY_CONCURRENCY);
-          const chunkResults = await Promise.all(
-            chunk.map(async (entry): Promise<CapturedSession[]> => {
-            const entryDir = path.join(workspaceStorageDir, entry);
-            let resolvedWsPath: string | undefined;
+        for (const { name } of entriesSorted) {
+          const entryDir = path.join(workspaceStorageDir, name);
+          let resolvedWsPath: string | undefined;
+          let resolvedFolderPaths: string[] = [];
 
-            let resolvedFolderPaths: string[] = [];
+          try {
+            const wsJsonPath = path.join(entryDir, 'workspace.json');
+            const content = (await fs.readFile(wsJsonPath, 'utf8')).replace(/^﻿/, '');
+            const wsJson = JSON.parse(content);
+            const folderUri = wsJson.folder || wsJson.workspace;
+            if (folderUri && typeof folderUri === 'string') {
+              resolvedWsPath = decodeURIComponent(folderUri).replace(/^file:\/\/\//, '').replace(/\//g, path.sep);
 
-            try {
-              const wsJsonPath = path.join(entryDir, 'workspace.json');
-              const content = (await fs.readFile(wsJsonPath, 'utf8')).replace(/^﻿/, '');
-              const wsJson = JSON.parse(content);
-              const folderUri = wsJson.folder || wsJson.workspace;
-              if (folderUri && typeof folderUri === 'string') {
-                resolvedWsPath = decodeURIComponent(folderUri).replace(/^file:\/\/\//, '').replace(/\//g, path.sep);
-
-                if (resolvedWsPath.toLowerCase().endsWith('.code-workspace')) {
-                  resolvedFolderPaths = await this.tryResolveWorkspaceFileFolders(resolvedWsPath);
-                }
-              }
-            } catch { /* skip */ }
-
-            // 提早過濾：如果是單一專案掃描，直接略過不符合的資料夾，省下大量 I/O
-            if (_workspacePath && resolvedWsPath) {
-              const search = _workspacePath.replace(/\\/g, '/').toLowerCase();
-              const target = resolvedWsPath.replace(/\\/g, '/').toLowerCase();
-              if (!target.includes(search) && !search.includes(target)) {
-                if (resolvedFolderPaths.length === 0) {
-                  return [];
-                }
-                const folderMatched = resolvedFolderPaths.some(fp => {
-                  const t = fp.replace(/\\/g, '/').toLowerCase();
-                  return t.includes(search) || search.includes(t);
-                });
-                if (!folderMatched) {
-                  return [];
-                }
+              if (resolvedWsPath.toLowerCase().endsWith('.code-workspace')) {
+                resolvedFolderPaths = await this.tryResolveWorkspaceFileFolders(resolvedWsPath);
               }
             }
+          } catch { /* skip */ }
 
-            const chatSessionsDir = path.join(entryDir, 'chatSessions');
-            let wsPathForSession: string | undefined = resolvedWsPath;
-            if (resolvedFolderPaths.length > 0) {
-              if (_workspacePath) {
-                wsPathForSession = _workspacePath;
-              } else {
-                wsPathForSession = resolvedFolderPaths[0];
+          if (workspacePath && resolvedWsPath) {
+            const search = workspacePath.replace(/\\/g, '/').toLowerCase();
+            const target = resolvedWsPath.replace(/\\/g, '/').toLowerCase();
+            if (!target.includes(search) && !search.includes(target)) {
+              if (resolvedFolderPaths.length === 0) {
+                continue;
+              }
+              const folderMatched = resolvedFolderPaths.some(fp => {
+                const t = fp.replace(/\\/g, '/').toLowerCase();
+                return t.includes(search) || search.includes(t);
+              });
+              if (!folderMatched) {
+                continue;
               }
             }
-            return this.extractFromDir(chatSessionsDir, wsPathForSession);
-          })
-          );
-          allEntryResults.push(...chunkResults);
-        }
+          }
 
-        for (const sessions of allEntryResults) {
-          allSessions.push(...sessions);
+          let wsPathForSession: string | undefined = resolvedWsPath;
+          if (resolvedFolderPaths.length > 0) {
+            wsPathForSession = workspacePath ?? resolvedFolderPaths[0];
+          }
+
+          candidates.push(...await this.collectFilesFromDir(
+            path.join(entryDir, 'chatSessions'),
+            wsPathForSession,
+            maxCandidates === undefined ? undefined : Math.max(0, maxCandidates - candidates.length)
+          ));
+
+          if (maxCandidates !== undefined && candidates.length >= maxCandidates) {
+            return candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+          }
         }
       } catch { /* skip */ }
     }
 
-    return allSessions.sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
+    return candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  }
+
+  private async collectFilesFromDir(
+    dir: string,
+    wsPath?: string,
+    limit?: number
+  ): Promise<CopilotSessionFileCandidate[]> {
+    try {
+      await fs.access(dir);
+      const entries = await fs.readdir(dir);
+      const files = entries.filter(e => e.endsWith('.json') || e.endsWith('.jsonl'));
+      const candidates: CopilotSessionFileCandidate[] = [];
+      const STAT_BATCH = 64;
+
+      for (let i = 0; i < files.length; i += STAT_BATCH) {
+        const batch = files.slice(i, i + STAT_BATCH);
+        const batchStats = await Promise.all(batch.map(async f => {
+          const filePath = path.join(dir, f);
+          try {
+            const stat = await fs.stat(filePath);
+            if (stat.size < 500) {
+              return undefined;
+            }
+            return {
+              filePath,
+              workspacePath: wsPath,
+              mtimeMs: stat.mtimeMs,
+              size: stat.size,
+            } satisfies CopilotSessionFileCandidate;
+          } catch {
+            return undefined;
+          }
+        }));
+        for (const candidate of batchStats) {
+          if (candidate) {
+            candidates.push(candidate);
+          }
+        }
+      }
+
+      candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+      return limit === undefined ? candidates : candidates.slice(0, limit);
+    } catch {
+      return [];
+    }
+  }
+
+  private async extractFromCandidates(candidates: CopilotSessionFileCandidate[], metadataOnly = false): Promise<CapturedSession[]> {
+    const results: CapturedSession[] = [];
+    const lazy = this.isLazyEnabled();
+    const CHUNK_SIZE = 20;
+
+    for (let i = 0; i < candidates.length; i += CHUNK_SIZE) {
+      const chunk = candidates.slice(i, i + CHUNK_SIZE);
+      await Promise.all(chunk.map(async (candidate) => {
+        const ext = path.extname(candidate.filePath).toLowerCase();
+        try {
+          if (lazy && metadataOnly) {
+            results.push({
+              sourceIde: this.ideId,
+              capturedAt: new Date(candidate.mtimeMs).toISOString(),
+              workspacePath: candidate.workspacePath,
+              messages: [],
+              messagesLoaded: false,
+              fileSizeBytes: candidate.size,
+              rawPath: candidate.filePath,
+              readStatus: 'success',
+            });
+            return;
+          }
+
+          if (lazy) {
+            const prescanResult = ext === '.jsonl'
+              ? await this.prescanJsonl(candidate.filePath)
+              : await this.prescanJson(candidate.filePath);
+
+            for (const p of prescanResult) {
+              if (!p.sessionId && !p.firstMsg) continue;
+              results.push({
+                sourceIde: this.ideId,
+                capturedAt: new Date(candidate.mtimeMs).toISOString(),
+                sessionId: p.sessionId || path.basename(candidate.filePath, ext),
+                title: p.title,
+                workspacePath: candidate.workspacePath,
+                messages: p.firstMsg ? [p.firstMsg] : [],
+                messagesLoaded: false,
+                fileSizeBytes: candidate.size,
+                metadata: { fileSessionId: p.sessionId },
+                rawPath: candidate.filePath,
+                readStatus: 'success',
+              });
+            }
+            return;
+          }
+
+          const raw = await fs.readFile(candidate.filePath, 'utf8');
+          const sessions: CopilotSession[] = [];
+
+          if (ext === '.jsonl') {
+            for (const line of raw.split('\n')) {
+              const trimmed = line.trim();
+              if (trimmed) {
+                try {
+                  const parsed = JSON.parse(trimmed) as CopilotJsonlLine;
+                  if (parsed.v) sessions.push(parsed.v);
+                } catch { /* skip */ }
+              }
+            }
+          } else {
+            try { sessions.push(JSON.parse(raw) as CopilotSession); } catch { /* skip */ }
+          }
+
+          for (const session of sessions) {
+            if (session?.requests?.length) {
+              const messages = this.parseMessages(session.requests);
+              if (messages.length > 0) {
+                results.push({
+                  sourceIde: this.ideId,
+                  capturedAt: new Date(candidate.mtimeMs).toISOString(),
+                  sessionId: session.sessionId || path.basename(candidate.filePath, ext),
+                  title: session.customTitle,
+                  workspacePath: candidate.workspacePath,
+                  messages,
+                  messagesLoaded: true,
+                  fileSizeBytes: candidate.size,
+                  rawPath: candidate.filePath,
+                  readStatus: 'success',
+                });
+              }
+            }
+          }
+        } catch { /* skip */ }
+      }));
+    }
+
+    return results.sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
   }
 
   private async listDirsByMtime(baseDir: string, entries: string[]): Promise<Array<{ name: string; mtime: number }>> {
@@ -281,11 +434,29 @@ export class CopilotExtractor implements IChatExtractor {
     return stats.sort((a, b) => b.mtime - a.mtime);
   }
 
-  private async extractFromDir(dir: string, wsPath?: string): Promise<CapturedSession[]> {
+  private async extractFromDir(dir: string, wsPath?: string, limit?: number): Promise<CapturedSession[]> {
     try {
       await fs.access(dir);
       const entries = await fs.readdir(dir);
-      const files = entries.filter(e => e.endsWith('.json') || e.endsWith('.jsonl'));
+      let files = entries.filter(e => e.endsWith('.json') || e.endsWith('.jsonl'));
+
+      if (limit !== undefined && files.length > limit) {
+        const STAT_BATCH = 32;
+        const withMtime: Array<{ name: string; mtime: number }> = [];
+        for (let si = 0; si < files.length; si += STAT_BATCH) {
+          const batch = files.slice(si, si + STAT_BATCH);
+          const batchStats = await Promise.all(batch.map(async f => {
+            try {
+              const s = await fs.stat(path.join(dir, f));
+              return { name: f, mtime: s.mtimeMs };
+            } catch { return { name: f, mtime: 0 }; }
+          }));
+          withMtime.push(...batchStats);
+        }
+        withMtime.sort((a, b) => b.mtime - a.mtime);
+        files = withMtime.slice(0, limit).map(x => x.name);
+      }
+
       const results: CapturedSession[] = [];
       const lazy = this.isLazyEnabled();
 
@@ -532,6 +703,33 @@ export class CopilotExtractor implements IChatExtractor {
         session.messages = await this.loadJsonWithRegex(session.rawPath);
       }
     }
+  }
+
+  async hydrateSessionSummary(session: CapturedSession): Promise<void> {
+    if (session.messages.length > 0 || session.title) {
+      return;
+    }
+
+    const ext = path.extname(session.rawPath).toLowerCase();
+    const prescanResult = ext === '.jsonl'
+      ? await this.prescanJsonl(session.rawPath)
+      : await this.prescanJson(session.rawPath);
+
+    const first = prescanResult.find(p => p.firstMsg || p.title || p.sessionId);
+    if (!first) {
+      session.readStatus = 'empty';
+      return;
+    }
+
+    if (!first.firstMsg && !first.title) {
+      session.readStatus = 'empty';
+      return;
+    }
+
+    session.sessionId = first.sessionId;
+    session.title = first.title;
+    session.messages = first.firstMsg ? [first.firstMsg] : [];
+    session.metadata = { ...session.metadata, fileSessionId: first.sessionId };
   }
 
   /**

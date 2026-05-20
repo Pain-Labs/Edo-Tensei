@@ -71,6 +71,28 @@ describe('prescanJsonl', () => {
     expect(results[0].sessionId).toBe('v4-session')
     expect(results[0].firstMsg?.content).toContain('array key path')
   })
+
+  it('returns no displayable summary for an empty Copilot shell session', async () => {
+    const emptyPath = path.join(projSessions, 'empty_shell.jsonl')
+    await fs.writeFile(emptyPath, [
+      JSON.stringify({
+        kind: 0,
+        v: {
+          version: 3,
+          sessionId: 'empty-shell',
+          requests: [],
+          pendingRequests: [],
+        },
+      }),
+      JSON.stringify({ kind: 1, k: ['responderUsername'], v: 'GitHub Copilot' }),
+    ].join('\n'))
+
+    const ext = new CopilotExtractor()
+    const results: Array<{ sessionId?: string; title?: string; firstMsg?: { role: string; content: string } }> =
+      await (ext as any).prescanJsonl(emptyPath)
+
+    expect(results).toHaveLength(0)
+  })
 })
 
 // ─── prescanJson (white-box) ───────────────────────────────────────────────────
@@ -136,6 +158,40 @@ describe('extractAll — scan-all (no workspace filter)', () => {
 
     expect(v4).toBeDefined()
     expect(v4?.messages.length).toBeGreaterThan(0)
+  })
+
+  it('uses metadata-only pagination so scan-all does not parse candidate files', async () => {
+    const ext = new CopilotExtractor() as any
+    let prescanCalls = 0
+    const originalJson = ext.prescanJson.bind(ext)
+    const originalJsonl = ext.prescanJsonl.bind(ext)
+
+    ext.prescanJson = async (...args: unknown[]) => {
+      prescanCalls += 1
+      return originalJson(...args)
+    }
+    ext.prescanJsonl = async (...args: unknown[]) => {
+      prescanCalls += 1
+      return originalJsonl(...args)
+    }
+
+    const sessions = await ext.extractAll(undefined, [], { limit: 2, offset: 0 })
+
+    expect(sessions).toHaveLength(2)
+    expect(sessions[0].messagesLoaded).toBe(false)
+    expect(prescanCalls).toBe(0)
+  })
+
+  it('returns stable pages using limit and offset', async () => {
+    const ext = new CopilotExtractor()
+    const page1 = await ext.extractAll(undefined, [], { limit: 2, offset: 0 })
+    const page2 = await ext.extractAll(undefined, [], { limit: 2, offset: 2 })
+    const page1Paths = new Set(page1.map(s => s.rawPath))
+    const page2Paths = new Set(page2.map(s => s.rawPath))
+
+    expect(page1).toHaveLength(2)
+    expect(page2).toHaveLength(2)
+    expect([...page2Paths].some(p => page1Paths.has(p))).toBe(false)
   })
 })
 

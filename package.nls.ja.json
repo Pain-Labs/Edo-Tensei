@@ -9,12 +9,11 @@
     "config.customScanPaths.description": "各IDEのセッション履歴を走査するカスタム絶対パス。（例: { \"claude\": [\"D:/custom/.claude\"] }）",
     "viewContainer.title": "Edo Tensei",
     "view.sessions.name": "Edo Tensei",
-    "view.welcome": "Edo Tensei — IDE をまたいで AI Session を引き継ぎ、最初からやり直さずに続けられます。\n\n[スキャン（現在のプロジェクト）](command:edoTensei.scanSessions)\n\n[スキャン（すべてのプロジェクト）](command:edoTensei.fetchAllSessions)\n\n[Agent Skill を生成](command:edoTensei.generateAgentSkill)",
+    "view.welcome": "Edo Tensei — IDE をまたいで AI Session を引き継ぎ、最初からやり直さずに続けられます。\n\n[⚡ すべての IDE をスキャン](command:edoTensei.scanAllIdes)\n\n[Agent Skill を生成](command:edoTensei.generateAgentSkill)",
     "command.resurrectSession.title": "Edo Tensei: セッションを復活",
     "command.copyHandoffPrompt.title": "Edo Tensei: 引き継ぎプロンプトをコピー",
     "command.openSessionFile.title": "Edo Tensei: セッションファイルを開く",
-    "command.scanSessions.title": "プロジェクトの Sessions をスキャン",
-    "command.fetchAllSessions.title": "すべての履歴 Sessions を取得",
+    "command.scanAllIdes.title": "すべての IDE をスキャン",
     "command.exportAllSessions.title": "解析済み全 Sessions を .edo_tensei にエクスポート",
     "command.exportSession.title": "解析済み Session を .edo_tensei にエクスポート",
     "command.previewRawSession.title": "生の Session ファイルをプレビュー",
@@ -26,5 +25,8 @@
     "command.generateAgentSkill.title": "Agent Skill を生成",
     "command.showMcpConfig.title": "MCP 設定を表示",
     "config.lazyLoadMessages.description": "遅延読み込みを有効化：スキャン時は最初のメッセージのみ読み取り、ホバー・プレビュー時に全内容を読み込みます。オフにするとデバッグ対照用の即時読み込みモードに戻ります。",
-    "config.mcpConfig.enabled.description": "Enable MCP Config UI (beta). When disabled, the MCP button is hidden and the command is disabled."
+    "config.mcpConfig.enabled.description": "Enable MCP Config UI (beta). When disabled, the MCP button is hidden and the command is disabled.",
+    "command.refreshIde.title": "この IDE のみ再スキャン",
+    "command.loadMoreSessions.title": "セッションをさらに読み込む",
+    "config.maxSessionsPerIde.description": "IDE ごとに表示するセッションの最大数。超えた場合は「さらに読み込む」ボタンが表示されます。より多くのセッションを一度に表示したい場合は増やしてください（スキャンが遅くなる場合があります）。"
 }

@@ -9,12 +9,11 @@
     "config.customScanPaths.description": "Custom absolute paths to scan for each IDE's session histories. (e.g. { \"claude\": [\"D:/custom/.claude\"] })",
     "viewContainer.title": "Edo Tensei",
     "view.sessions.name": "Edo Tensei",
-    "view.welcome": "Edo Tensei — Cross-IDE AI session handoff, without starting over.\n\n[Scan (Current Project)](command:edoTensei.scanSessions)\n\n[Scan (All Projects)](command:edoTensei.fetchAllSessions)\n\n[Generate Skill](command:edoTensei.generateAgentSkill)",
+    "view.welcome": "Edo Tensei — Cross-IDE AI session handoff, without starting over.\n\n[Scan All IDEs](command:edoTensei.scanAllIdes)\n\n[Generate Skill](command:edoTensei.generateAgentSkill)",
     "command.resurrectSession.title": "Edo Tensei: Resurrect Session",
     "command.copyHandoffPrompt.title": "Edo Tensei: Copy Handoff Prompt",
     "command.openSessionFile.title": "Edo Tensei: Open Session File",
-    "command.scanSessions.title": "Scan Project Sessions",
-    "command.fetchAllSessions.title": "Fetch ALL Historical Sessions",
+    "command.scanAllIdes.title": "Scan All IDEs",
     "command.exportAllSessions.title": "Export All Parsed Sessions to .edo_tensei",
     "command.exportSession.title": "Export Parsed Session to .edo_tensei",
     "command.previewRawSession.title": "Preview Raw Session File",
@@ -26,5 +25,8 @@
     "command.generateAgentSkill.title": "Generate Agent Skill",
     "command.showMcpConfig.title": "Show MCP Config",
     "config.lazyLoadMessages.description": "Enable lazy loading: only scan the first message during Scan; full content loads on hover/preview. Disable to restore eager loading for debugging comparison.",
-    "config.mcpConfig.enabled.description": "Enable MCP Config UI (beta). When disabled, the MCP button is hidden and the command is disabled."
+    "config.mcpConfig.enabled.description": "Enable MCP Config UI (beta). When disabled, the MCP button is hidden and the command is disabled.",
+    "command.refreshIde.title": "Refresh This IDE",
+    "command.loadMoreSessions.title": "Load More Sessions",
+    "config.maxSessionsPerIde.description": "Maximum number of sessions to show per IDE. When exceeded, a 'Load more…' button appears. Increase this if you want to see more sessions at once (may slow down scanning)."
 }

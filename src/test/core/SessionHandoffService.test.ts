@@ -6,12 +6,13 @@ function wait(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-function buildSession(sourceIde: CapturedSession['sourceIde']): CapturedSession {
+function buildSession(sourceIde: CapturedSession['sourceIde'], index = 0): CapturedSession {
   return {
     sourceIde,
-    capturedAt: new Date().toISOString(),
-    messages: [{ role: 'user', content: `hello-${sourceIde}` }],
-    rawPath: `/tmp/${sourceIde}.jsonl`,
+    capturedAt: new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString(),
+    sessionId: `${sourceIde}-${index}`,
+    messages: [{ role: 'user', content: `hello-${sourceIde}-${index}` }],
+    rawPath: `/tmp/${sourceIde}-${index}.jsonl`,
     readStatus: 'success',
   }
 }
@@ -42,9 +43,56 @@ describe('SessionHandoffService', () => {
       makeExtractor('kiro'),
     ]
 
-    const sessions = await service.scanAllSessions()
+    const sessions = await service.scanAllIdes()
 
     expect(sessions).toHaveLength(4)
     expect(maxActive).toBeLessThanOrEqual(2)
+  })
+
+  it('does not apply load-more pagination to extractors that do not support it', async () => {
+    const service = new SessionHandoffService({} as any)
+    const allSessions = Array.from({ length: 305 }, (_, i) => buildSession('cursor', i))
+
+    ;(service as any).extractors = [{
+      ideId: 'cursor',
+      extract: async () => allSessions[0],
+      extractAll: async () => allSessions,
+    } satisfies IChatExtractor]
+
+    const sessions = await service.scanSingleIde('cursor')
+
+    expect(sessions).toHaveLength(305)
+    expect(service.hasPendingSessions('cursor')).toBe(false)
+  })
+
+  it('loads paged extractors one page at a time without duplicating sessions', async () => {
+    const service = new SessionHandoffService({} as any)
+    const allSessions = Array.from({ length: 305 }, (_, i) => buildSession('copilot', i)).reverse()
+    const calls: Array<{ limit?: number; offset?: number }> = []
+
+    ;(service as any).extractors = [{
+      ideId: 'copilot',
+      supportsPagedExtraction: true,
+      extract: async () => allSessions[0],
+      extractAll: async (_workspacePath?: string, _customScanPaths?: string[], options?: { limit?: number; offset?: number }) => {
+        calls.push({ limit: options?.limit, offset: options?.offset })
+        const offset = options?.offset ?? 0
+        const limit = options?.limit ?? allSessions.length
+        return allSessions.slice(offset, offset + limit)
+      },
+    } satisfies IChatExtractor]
+
+    const firstPage = await service.scanSingleIde('copilot')
+    await service.loadMoreSessions('copilot')
+    const loaded = service.getGroupedSessions().get('copilot') ?? []
+
+    expect(firstPage).toHaveLength(300)
+    expect(loaded).toHaveLength(305)
+    expect(new Set(loaded.map(s => s.rawPath)).size).toBe(305)
+    expect(calls).toEqual([
+      { limit: 301, offset: 0 },
+      { limit: 301, offset: 300 },
+    ])
+    expect(service.hasPendingSessions('copilot')).toBe(false)
   })
 })

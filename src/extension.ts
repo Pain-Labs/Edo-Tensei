@@ -6,7 +6,7 @@ import * as path from 'path';
 import { readFile } from 'fs/promises';
 import { SessionHandoffService } from './core/SessionHandoffService';
 import { SkillGenerator } from './core/SkillGenerator';
-import { SessionHandoffProvider, SessionItem } from './ui/SessionHandoffProvider';
+import { SessionHandoffProvider, SessionItem, IDEParentItem, LoadMoreItem } from './ui/SessionHandoffProvider';
 import { McpConfigPanel } from './ui/McpConfigPanel';
 import { I18n } from './i18n';
 
@@ -380,40 +380,6 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('edoTensei.scanSessions', async () => {
-            if (isScanning) { return; }
-            isScanning = true;
-            try {
-                const sessions = await vscode.window.withProgress(
-                    { location: vscode.ProgressLocation.Window, title: I18n.getMessage('scan.projectProgress'), cancellable: false },
-                    () => sessionService.scanProjectSessions()
-                );
-                if (sessions.length === 0) {
-                    const scanPaths = sessionService.getExpectedScanPaths();
-                    const pathSummary = scanPaths
-                        .map(({ ide, paths }) => `\u2022 ${ide}: ${paths[0]}`)
-                        .join('\n');
-                    const action = await vscode.window.showInformationMessage(
-                        I18n.getMessage('scan.projectEmpty'),
-                        { modal: false, detail: `Scanned paths:\n${pathSummary}\n\nIf your IDE uses a different path, add it via "Configure Custom Scan Paths".` },
-                        I18n.getMessage('scan.configureCustomPaths'),
-                        I18n.getMessage('scan.fetchAll')
-                    );
-                    if (action === I18n.getMessage('scan.configureCustomPaths')) {
-                        vscode.commands.executeCommand('workbench.action.openSettings', 'edoTensei.customScanPaths');
-                    } else if (action === I18n.getMessage('scan.fetchAll')) {
-                        vscode.commands.executeCommand('edoTensei.fetchAllSessions');
-                    }
-                } else {
-                    vscode.window.showInformationMessage(I18n.getMessage('scan.projectFound', String(sessions.length)));
-                }
-            } finally {
-                isScanning = false;
-            }
-        })
-    );
-
-    context.subscriptions.push(
         vscode.commands.registerCommand('edoTensei.previewRawSession', async (item: SessionItem) => {
             if (!item?.session) {
                 vscode.window.showWarningMessage(I18n.getMessage('session.notSelected'));
@@ -450,15 +416,39 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('edoTensei.fetchAllSessions', async () => {
+        vscode.commands.registerCommand('edoTensei.scanAllIdes', async () => {
             if (isScanning) { return; }
             isScanning = true;
             try {
                 const sessions = await vscode.window.withProgress(
                     { location: vscode.ProgressLocation.Window, title: I18n.getMessage('scan.allProgress'), cancellable: false },
-                    () => sessionService.scanAllSessions()
+                    () => sessionService.scanAllIdes()
                 );
                 vscode.window.showInformationMessage(I18n.getMessage('scan.allFound', String(sessions.length)));
+            } finally {
+                isScanning = false;
+            }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('edoTensei.loadMoreSessions', async (ideId: string) => {
+            await sessionService.loadMoreSessions(ideId as Parameters<typeof sessionService.loadMoreSessions>[0]);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('edoTensei.refreshIde', async (item: IDEParentItem) => {
+            if (!item?.ideId) { return; }
+            if (isScanning) { return; }
+            isScanning = true;
+            try {
+                const label = typeof item.label === 'string' ? item.label : item.ideId;
+                const sessions = await vscode.window.withProgress(
+                    { location: vscode.ProgressLocation.Window, title: I18n.getMessage('scan.refreshIdeProgress', label), cancellable: false },
+                    () => sessionService.scanSingleIde(item.ideId)
+                );
+                vscode.window.showInformationMessage(I18n.getMessage('scan.refreshIdeFound', label, String(sessions.length)));
             } finally {
                 isScanning = false;
             }

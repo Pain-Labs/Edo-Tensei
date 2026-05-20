@@ -32,6 +32,7 @@ export interface CapturedSession {
  */
 export interface IChatExtractor {
   readonly ideId: CapturedSession['sourceIde'];
+  readonly supportsPagedExtraction?: boolean;
   /** 嘗試從本地儲存讀取最新的 Chat Session。
    * @param workspacePath - 目前開啟的 workspace 資料夾路徑（部分 IDE 需要此資訊定位對應紀錄）
    * @param customScanPaths - 自訂掃描路徑清單
@@ -42,11 +43,21 @@ export interface IChatExtractor {
    * @param workspacePath - 用於過濾或排序的參考路徑
    * @param customScanPaths - 自訂掃描路徑清單
    */
-  extractAll(workspacePath?: string, customScanPaths?: string[]): Promise<CapturedSession[]>;
+  extractAll(
+    workspacePath?: string,
+    customScanPaths?: string[],
+    options?: { limit?: number; offset?: number }
+  ): Promise<CapturedSession[]>;
 
   /** 
    * (Optional) 延遲載入完整對話內容。
    * 某些 IDE (如 Kiro) 的對話圖形十分龐大，Scan Project 時僅載入摘要，需要時才呼叫此方法展開。
    */
   loadFullMessages?(session: CapturedSession): Promise<void>;
+
+  /**
+   * (Optional) Background-only light summary hydration for paged metadata scans.
+   * Should avoid full transcript parsing and only fill fields useful for list display.
+   */
+  hydrateSessionSummary?(session: CapturedSession): Promise<void>;
 }

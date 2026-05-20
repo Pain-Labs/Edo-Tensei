@@ -129,3 +129,36 @@ describe('SessionHandoffService.buildReadableTranscript', () => {
     expect(transcript).toMatch(/^# Copilot/)
   })
 })
+
+describe('SessionHandoffService.getGroupedSessions', () => {
+  it('returns only the sessions for the requested IDE, not sessions from other IDEs', async () => {
+    const service = new SessionHandoffService({} as any)
+
+    ;(service as any).extractors = [
+      {
+        ideId: 'copilot',
+        extract: async () => buildSession('copilot'),
+        extractAll: async () => [buildSession('copilot', 0), buildSession('copilot', 1)],
+      },
+      {
+        ideId: 'claude',
+        extract: async () => buildSession('claude'),
+        extractAll: async () => [buildSession('claude', 0)],
+      },
+    ]
+
+    await service.scanAllIdes()
+
+    const grouped = service.getGroupedSessions()
+    expect(grouped.get('copilot')).toHaveLength(2)
+    expect(grouped.get('claude')).toHaveLength(1)
+    // Copilot sessions contain no Claude sessions and vice versa
+    expect(grouped.get('copilot')?.every(s => s.sourceIde === 'copilot')).toBe(true)
+    expect(grouped.get('claude')?.every(s => s.sourceIde === 'claude')).toBe(true)
+  })
+
+  it('returns an empty array for an IDE that has not been scanned', async () => {
+    const service = new SessionHandoffService({} as any)
+    expect(service.getGroupedSessions().get('cursor') ?? []).toHaveLength(0)
+  })
+})

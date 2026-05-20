@@ -20,8 +20,8 @@ Edo Tensei is a VS Code extension that extracts local AI session histories from 
 
 ## Key Features
 
-- Multi-IDE Extraction: Automatically scans all supported IDEs, grouped by IDE → Project → Session.
-- Project-Scoped Scan: Filters to sessions matching the current workspace.
+- Per-IDE On-Demand Scanning: Expanding an IDE scans only that IDE, avoiding unnecessary disk I/O when the sidebar opens. The toolbar Scan All IDEs action can scan every supported IDE at once.
+- Pagination: Each IDE initially shows up to 300 sessions. Load More appears when additional sessions are available, keeping the tree responsive on machines with large histories.
 - Two Handoff Modes:
   - Path mode (default): Outputs session file path + per-IDE reading guide. Token-efficient.
   - Full-text mode: Embeds the complete conversation.
@@ -40,14 +40,15 @@ Edo Tensei is a VS Code extension that extracts local AI session histories from 
 
 ## Commands
 
-- Scan Project Sessions: Find sessions matching current workspace
-- Fetch ALL Historical Sessions: Scan every IDE
+- Scan All IDEs: Scan every IDE for all local sessions
+- Refresh This IDE: Re-scan a single IDE
+- Load More Sessions: Load the next page of sessions for an IDE
 - Copy Handoff Prompt: Copy handoff prompt for selected session
 - View Parsed Session: Open Markdown preview
 - Preview Raw Session File: Open original session file
 - Copy Raw File Path: Copy session file path
 - Export Session to .edo_tensei: Save as Markdown file
-- Export All Sessions to .edo_tensei: Save all scanned sessions
+- Export All Sessions to .edo_tensei: Save all sessions for the selected IDE
 - Generate Agent Skill: Create reusable edo-tensei skill/rule files for other AI tools
 - Show MCP Config: Open UI panel to get copy-paste MCP configuration for your AI client
 

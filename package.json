@@ -35,10 +35,7 @@
   },
   "main": "./dist/extension.js",
   "activationEvents": [
-    "onStartupFinished",
-    "onView:sessionHandoffView",
-    "onCommand:edoTensei.scanAllIdes",
-    "onCommand:edoTensei.generateAgentSkill"
+    "onStartupFinished"
   ],
   "contributes": {
     "configuration": {
@@ -230,11 +227,6 @@
           "group": "navigation@1"
         },
         {
-          "command": "edoTensei.exportAllSessions",
-          "when": "view == sessionHandoffView",
-          "group": "navigation@2"
-        },
-        {
           "command": "edoTensei.openSettings",
           "when": "view == sessionHandoffView",
           "group": "navigation@99"
@@ -255,6 +247,11 @@
           "command": "edoTensei.refreshIde",
           "when": "view == sessionHandoffView && viewItem == ideParentItem",
           "group": "inline@1"
+        },
+        {
+          "command": "edoTensei.exportAllSessions",
+          "when": "view == sessionHandoffView && viewItem == ideParentItem",
+          "group": "inline@2"
         },
         {
           "command": "edoTensei.refreshIde",
@@ -301,6 +298,10 @@
   },
   "scripts": {
     "test": "vitest run",
+    "test:unit": "vitest run src/test/core src/test/copilot src/test/security src/test/ui src/test/config",
+    "test:ui:setup": "extest setup-tests -c 1.96.0",
+    "test:ui": "tsc -p tsconfig.test.ui.json && node -e \"const fs=require('fs');const p=require('path').join(require('os').tmpdir(),'test-resources','settings');if(fs.existsSync(p))fs.rmSync(p,{recursive:true,force:true})\" && extest setup-and-run \"out/test/ui/**/*.ui.test.js\" -e \".vscode-test/extensions\" -c 1.96.0",
+    "test:ui:demo": "node src/test/ui/write-demo-settings.cjs && tsc -p tsconfig.test.ui.json && node -e \"const fs=require('fs');const p=require('path').join(require('os').tmpdir(),'test-resources','settings');if(fs.existsSync(p))fs.rmSync(p,{recursive:true,force:true})\" && extest setup-and-run \"out/test/ui/**/*.visual.js\" -e \".vscode-test/extensions\" -c 1.96.0 -o \"test-results/demo-code-settings.generated.json\"",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
@@ -315,11 +316,16 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^20.19.40",
     "@types/vscode": "^1.79.0",
     "@vitest/coverage-v8": "^4.1.5",
+    "chai": "^4.5.0",
     "esbuild": "^0.25.0",
+    "mocha": "^10.8.2",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.5",
+    "vscode-extension-tester": "^8.23.0"
   }
 }

@@ -5,6 +5,8 @@ tsconfig.json
 
 # Build config
 package-lock.json
+.gitignore
+.markdownlint.json
 
 # IDE settings
 .vscode/
@@ -19,12 +21,18 @@ package-lock.json
 # Build artifacts
 *.vsix
 node_modules/
+coverage/
+out/
+test-results/
+.vscode-test/
+mcp-server/
 
 # Internal docs (not needed in the packaged extension)
 docs/session-handoff/
 docs/index.html
 docs/robots.txt
 docs/llms*.txt
+docs/ui-redesign-plan.md
 docs/BRANDING_INVENTORY.md
 docs/LOGO_CONCEPTS_MANGA.md
 docs/LOGO_CONCEPTS_TECH.md
@@ -48,6 +56,8 @@ docs/assets/ui_operation_guide.png
 # Development files
 DEVELOPMENT.md
 vitest.config.ts
+tsconfig.test.json
+tsconfig.test.ui.json
 test/
 
 # Keep the following (will be bundled):

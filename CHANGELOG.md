@@ -2,6 +2,35 @@
 
 All notable changes to the "Edo Tensei" extension will be documented in this file.
 
+## [1.2.0] - Per-IDE Scanning, Pagination & UX Polish - 2026-05-20
+
+### ⚡ Per-IDE On-Demand Scanning & Pagination
+
+- **Per-IDE on-demand scanning**: Each IDE in the sidebar is now scanned independently when you first expand it, instead of triggering a global scan-all. The tree loads instantly and only the IDE you care about performs disk I/O.
+- **Pagination**: Sessions are displayed in pages of up to 300. A "Load More" button appears at the bottom of any IDE that has additional sessions, preventing the tree from becoming unresponsive on machines with thousands of sessions.
+- **IO concurrency throttle**: Extractor scan concurrency is capped at 2 simultaneous IDE scans, preventing file system saturation on machines with slow or network-backed storage.
+
+### 🎨 Tooltip & Handoff Prompt Improvements
+
+- **Richer session tooltips**: Hovering over a session now shows a formatted Markdown tooltip including the workspace path, project name, IDE, timestamp, message count, and estimated token count. Counts are updated precisely when messages are lazily loaded on hover.
+- **Workspace path in transcript header**: The readable transcript generated for handoff prompts now includes the workspace path on the second line, giving the receiving AI clearer context about which project the session belongs to.
+
+### 🔧 UX Adjustments
+
+- **Export All Sessions per IDE**: The "Export All Sessions" button has moved from the panel toolbar to each IDE item's inline action row, so you export only the sessions for that specific IDE instead of all IDEs at once.
+
+### 🐛 Bug Fixes
+
+- **Antigravity session titles**: Sessions whose user messages were wrapped in `<USER_REQUEST>` XML tags (all sessions since Antigravity's 2026-04-22 format change) now display clean titles instead of showing the raw tag text.
+
+### 🧪 Test Infrastructure
+
+- Added `vscode-extension-tester` E2E test infrastructure (`npm run test:ui`) with a sidebar smoke test that verifies the activity bar button, section name, and all expected IDE tree items.
+- Added unit tests for `ClaudeExtractor` (JSONL parsing, cwd extraction, slug resolution), `CursorExtractor` (path-to-slug), and `KiroExtractor` (both legacy `.chat` and new `workspace-sessions` JSON formats, Base64URL path decoding).
+- Added regression tests for `SessionHandoffService.buildReadableTranscript` and `SessionHandoffProvider` tooltip/tree behaviour.
+- Added `packageJson` config tests to guard toolbar and inline button placement against accidental changes.
+- Added `test:unit` and `test:ui` scripts to `package.json` for targeted test runs.
+
 ## [1.1.2] - Codex Sanitization & Test Coverage - 2026-05-16
 
 ### Security

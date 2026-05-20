@@ -50,8 +50,8 @@ AI 額度在任務進行到一半時用完，切換到另一款 IDE 不應該代
 
 ## 核心功能
 
-- **多 IDE 提取**：自動掃描所有支援的 IDE，以 `IDE → 專案 → Session` 三層結構呈現。
-- **專案範圍掃描**：「掃描專案 Sessions」只列出與目前 workspace 相符的對話紀錄。
+- **按 IDE 隨需掃描**：展開任一 IDE 即只掃描該 IDE 的本機 session，避免開啟側邊欄時一次做大量磁碟 I/O。也可使用工具列 ⚡ **Scan All IDEs** 一次掃描全部。
+- **分頁載入**：每個 IDE 最多先顯示 300 筆 session；若還有更多紀錄，底部會出現 **Load More**，讓大量歷史紀錄仍保持流暢。
 - **兩種交接模式**：
   - **路徑模式**（預設）：輸出 session 檔案路徑 + 各 IDE 專屬閱讀指引。省 token，接手端只讀必要段落。
   - **全文模式**：嵌入完整對話內容。相容性最廣，但 token 消耗較高。
@@ -68,13 +68,14 @@ AI 額度在任務進行到一半時用完，切換到另一款 IDE 不應該代
 
 ## 快速開始
 
-![Operation Guide](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/ui_operation_guide.png)
+![Edo Tensei 產品示範](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/edo-tensei-product-demo.gif)
 
 1. 點擊 VS Code Activity Bar 的 **Edo Tensei** 圖示（裂痕資料夾圖示）開啟側邊欄。
-2. 點擊 **Scan (Current Project)** 或 **Scan (All Projects)** 尋找對話紀錄。
-3. **直接點擊某個 session** 即可瞬間將交接 Prompt 複製到剪貼簿。
-4. (選用) 右鍵點擊 session 可使用 **進階功能** (Advanced)，如匯出或預覽原始檔。
-5. **貼上** Prompt 到新的 IDE / AI Agent，繼續任務。
+2. **展開某個 IDE**，第一次展開時只會掃描該 IDE。也可使用工具列 ⚡ **Scan All IDEs** 一次掃描全部 IDE。
+3. 如果該 IDE 還有更多 sessions，點擊底部 **Load More** 載入下一頁。
+4. **直接點擊某個 session** 即可瞬間將交接 Prompt 複製到剪貼簿。
+5. (選用) 右鍵點擊 session 可使用 **進階功能** (Advanced)，如匯出或預覽原始檔；IDE 列上的 **Export All** 按鈕可匯出該 IDE 的所有 sessions。
+6. **貼上** Prompt 到新的 IDE / AI Agent，繼續任務。
 
 ---
 
@@ -107,14 +108,15 @@ AI 額度在任務進行到一半時用完，切換到另一款 IDE 不應該代
 
 | 指令 | 說明 |
 | :--- | :--- |
-| Scan Project Sessions | 掃描符合目前 workspace 的 sessions |
-| Fetch ALL Historical Sessions | 掃描所有 IDE 的全部本機 sessions |
+| Scan All IDEs | 掃描所有 IDE 的全部本機 sessions（工具列 ⚡ 按鈕） |
+| Refresh This IDE | 重新掃描單一 IDE（IDE 列上的 inline 按鈕） |
+| Load More Sessions | 載入該 IDE 的下一頁 sessions |
 | Copy Handoff Prompt | 複製選取 session 的交接 Prompt |
 | View Parsed Session | 以 Markdown 預覽格式開啟 session |
 | Preview Raw Session File | 開啟原始 session 檔案 |
 | Copy Raw File Path | 複製 session 檔案路徑到剪貼簿 |
 | Export Session to .edo_tensei | 將交接 Prompt 儲存為 Markdown 檔 |
-| Export All Sessions to .edo_tensei | 將所有已掃描的 sessions 匯出 |
+| Export All Sessions to .edo_tensei | 將指定 IDE 的所有 sessions 匯出到 `.edo_tensei/`（IDE 列上的 inline 按鈕） |
 | Generate Agent Skill | 為其他 AI 工具產生可重用的 `edo-tensei` skill/rule 檔案 |
 | Show MCP Config | 開啟 UI 面板，取得適用於你的 AI 代理的 MCP 伺服器設定檔 (可直接複製貼上) |
 

@@ -19,7 +19,14 @@ const INJECTED_PREFIXES: &[&str] = &[
     "<skills_instructions>",
     "<environment_context>",
     "# AGENTS.md instructions for",
-    "<turn_aborted>",
+];
+
+/// Known open/close block pairs that make up Codex injected scaffolding.
+const INJECTED_BLOCKS: &[(&str, &str)] = &[
+    ("<permissions instructions>", "</permissions instructions>"),
+    ("<collaboration_mode>", "</collaboration_mode>"),
+    ("<skills_instructions>", "</skills_instructions>"),
+    ("<environment_context>", "</environment_context>"),
 ];
 
 pub fn extract_all(workspace: Option<&str>, custom_paths: &[String], full: bool) -> Vec<CapturedSession> {
@@ -224,6 +231,51 @@ fn parse_codex_rollout(raw: &str, _full: bool) -> ParsedRollout {
     ParsedRollout { messages, cwd, session_id, title: None }
 }
 
+/// Literal-string block removal (mirrors TypeScript `removeMarkedBlocks`).
+fn remove_marked_blocks(text: &str, open: &str, close: &str) -> String {
+    let mut result = String::new();
+    let mut cursor = 0;
+    let lower = text.to_lowercase();
+    let lo = open.to_lowercase();
+    let lc = close.to_lowercase();
+
+    while cursor < text.len() {
+        match lower[cursor..].find(lo.as_str()) {
+            None => {
+                result.push_str(&text[cursor..]);
+                break;
+            }
+            Some(rel) => {
+                let start = cursor + rel;
+                result.push_str(&text[cursor..start]);
+                let after_open = start + open.len();
+                match lower[after_open..].find(lc.as_str()) {
+                    None => break,
+                    Some(rel2) => cursor = after_open + rel2 + close.len(),
+                }
+            }
+        }
+    }
+    result
+}
+
+/// Strip all known Codex injected scaffolding blocks, then character-level `<>` sanitization.
+/// Mirrors TypeScript `stripCodexInjectedScaffolding`.
+fn strip_codex_injected_scaffolding(text: &str) -> String {
+    let mut result = text.to_string();
+    for &(open, close) in INJECTED_BLOCKS {
+        result = remove_marked_blocks(&result, open, close);
+    }
+    result
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("# AGENTS.md instructions for"))
+        .collect::<Vec<_>>()
+        .join("\n")
+        .replace(['<', '>'], "")
+        .trim()
+        .to_string()
+}
+
 fn is_injected_message(role: &str, text: &str) -> bool {
     if role == "developer" || role == "system" {
         return true;
@@ -232,7 +284,13 @@ fn is_injected_message(role: &str, text: &str) -> bool {
     if stripped.starts_with("<turn_aborted>") {
         return true;
     }
-    INJECTED_PREFIXES.iter().any(|prefix| stripped.starts_with(prefix))
+    // Mirrors TypeScript: strip known scaffolding blocks; if < 50 chars remain it is pure
+    // injection.  If ≥ 50 chars remain the user appended a real request after the injected
+    // header, so we keep the whole message (parse_codex_rollout handles it as-is).
+    if INJECTED_PREFIXES.iter().any(|p| stripped.starts_with(p)) {
+        return strip_codex_injected_scaffolding(text).len() < 50;
+    }
+    false
 }
 
 fn normalize_path(p: &str) -> String {
@@ -397,19 +455,32 @@ mod tests {
     }
 
     #[test]
-    fn test_injected_prefix_filters_entire_message() {
-        // In TypeScript the extractor strips the injected block and keeps any trailing
-        // real text.  In Rust we use a simpler prefix-only check: a message that STARTS
-        // with an injected prefix is dropped entirely, even if it has trailing content.
-        // This test documents and locks in that Rust behaviour.
+    fn test_injected_prefix_short_trailing_content_filtered() {
+        // After stripping the injected block the remainder is "Actual user question" (< 50 chars),
+        // so the message is treated as pure injection and dropped — matches TypeScript behaviour.
         let text = "<permissions instructions>rules</permissions instructions>\nActual user question";
         let line = serde_json::json!({
             "type": "response_item",
             "payload": {"type": "message", "role": "user", "content": [{"type": "text", "text": text}]}
         }).to_string();
         let parsed = parse_codex_rollout(&format!("{line}\n"), true);
-        // Rust drops the whole message; TypeScript would have kept "Actual user question".
         assert!(parsed.messages.is_empty());
+    }
+
+    #[test]
+    fn test_injected_prefix_substantial_trailing_content_kept() {
+        // After stripping the injected block the remainder is ≥ 50 chars → real user request,
+        // kept as-is.  This matches TypeScript's 50-char threshold behaviour.
+        let long_request = "Please help me implement a full authentication system with JWT tokens.";
+        assert!(long_request.len() >= 50);
+        let text = format!("<permissions instructions>rules</permissions instructions>\n{long_request}");
+        let line = serde_json::json!({
+            "type": "response_item",
+            "payload": {"type": "message", "role": "user", "content": [{"type": "text", "text": text}]}
+        }).to_string();
+        let parsed = parse_codex_rollout(&format!("{line}\n"), true);
+        assert_eq!(parsed.messages.len(), 1);
+        assert!(parsed.messages[0].content.contains("authentication system"));
     }
 
     #[test]

@@ -102,9 +102,9 @@ describe('KiroExtractor.parseLegacyKiroChat', () => {
     ])
     const messages = extractor().parseLegacyKiroChat(raw)
     // First message stripped to empty → skipped; second stripped of leading blocks
-    const contents = messages.map(m => m.content)
-    expect(contents.every(c => !c.includes('<identity>'))).toBe(true)
-    expect(contents.every(c => !c.includes('<capabilities>'))).toBe(true)
+    const contents: string[] = messages.map((m: { content: string }) => m.content)
+    expect(contents.every((c: string) => !c.includes('<identity>'))).toBe(true)
+    expect(contents.every((c: string) => !c.includes('<capabilities>'))).toBe(true)
   })
 
   it('strips <OPEN-EDITOR-FILES> blocks from user messages', () => {

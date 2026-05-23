@@ -2,6 +2,8 @@
 /dist
 /out
 /coverage
+/.vscode-test
+/test-results
 /node_modules
 /.idea
 *.vsix
@@ -36,3 +38,4 @@ docs/alternatives/repo/**
 test/fixtures/*
 !test/fixtures/copilot/
 !test/fixtures/copilot/**
+docs/ui-redesign-plan.md

@@ -13,11 +13,12 @@ import { CodexExtractor } from './extractors/CodexExtractor';
 import { SessionSearchEngine, SessionSearchMatch, SessionSearchQuery } from './SessionSearchEngine';
 
 export class SessionHandoffService {
+    private static readonly EXTRACTOR_SCAN_CONCURRENCY = 2;
     private extractors: IChatExtractor[];
-    private cachedSessions: CapturedSession[] = [];
-    private allSessions: CapturedSession[] = [];
-    private scanMode: 'project' | 'all' = 'project';
-    private scanning = false;
+    private sessions = new Map<CapturedSession['sourceIde'], CapturedSession[]>();
+    private hasMoreSessions = new Map<CapturedSession['sourceIde'], boolean>();
+    private scannedIdes = new Set<CapturedSession['sourceIde']>();
+    private scanningIdes = new Set<CapturedSession['sourceIde']>();
     private readonly searchEngine = new SessionSearchEngine();
     private ideScanStatus = new Map<CapturedSession['sourceIde'], { state: 'idle' | 'scanning' | 'done' | 'error'; found: number }>();
     private _onDidUpdateSessions = new vscode.EventEmitter<void>();
@@ -53,18 +54,11 @@ export class SessionHandoffService {
     }
 
     public isScanning(): boolean {
-        return this.scanning;
+        return this.scanningIdes.size > 0;
     }
 
     public getIdeScanStatus(): Map<CapturedSession['sourceIde'], { state: 'idle' | 'scanning' | 'done' | 'error'; found: number }> {
         return this.ideScanStatus;
-    }
-
-    private resetIdeScanStatus(): void {
-        this.ideScanStatus = new Map();
-        for (const e of this.extractors) {
-            this.ideScanStatus.set(e.ideId, { state: 'idle', found: 0 });
-        }
     }
 
     private updateIdeScanStatus(ideId: CapturedSession['sourceIde'], patch: Partial<{ state: 'idle' | 'scanning' | 'done' | 'error'; found: number }>): void {
@@ -72,185 +66,189 @@ export class SessionHandoffService {
         this.ideScanStatus.set(ideId, { ...prev, ...patch });
     }
 
-    /**
-     * Scan for ALL sessions that match any of the current workspace folders (project).
-     * Supports multi-root workspaces.
-     */
-    async scanProjectSessions(): Promise<CapturedSession[]> {
-        this.scanMode = 'project';
-        this.cachedSessions = [];
-        this.scanning = true;
-        this.resetIdeScanStatus();
-        for (const e of this.extractors) {
-            this.updateIdeScanStatus(e.ideId, { state: 'scanning', found: 0 });
-        }
-        this._onDidUpdateSessions.fire(); // Clear UI immediately
+    public isIdeScanned(ideId: CapturedSession['sourceIde']): boolean {
+        return this.scannedIdes.has(ideId);
+    }
 
-        const workspacePaths = this.getWorkspaceRoots().map(uri => uri.fsPath);
-        if (workspacePaths.length === 0) {
-            return [];
+    private getSessionCap(): number {
+        try {
+            return vscode.workspace.getConfiguration('edoTensei').get<number>('maxSessionsPerIde', 300);
+        } catch { return 300; }
+    }
+
+    public hasPendingSessions(ideId: CapturedSession['sourceIde']): boolean {
+        return this.hasMoreSessions.get(ideId) === true;
+    }
+
+    public getPendingCount(ideId: CapturedSession['sourceIde']): number {
+        return this.hasMoreSessions.get(ideId) ? this.getSessionCap() : 0;
+    }
+
+    public getTotalSessionCount(ideId: CapturedSession['sourceIde']): number {
+        return this.sessions.get(ideId)?.length ?? 0;
+    }
+
+    public async loadMoreSessions(ideId: CapturedSession['sourceIde']): Promise<void> {
+        if (!this.hasPendingSessions(ideId) || this.scanningIdes.has(ideId)) { return; }
+        const extractor = this.extractors.find(e => e.ideId === ideId);
+        if (!extractor?.supportsPagedExtraction) { return; }
+
+        const cap = this.getSessionCap();
+        const current = this.sessions.get(ideId) ?? [];
+        this.scanningIdes.add(ideId);
+        this._onDidUpdateSessions.fire();
+
+        try {
+            const page = await extractor.extractAll(undefined, this.getCustomPaths(ideId), {
+                limit: cap + 1,
+                offset: current.length,
+            });
+            const visible = page.slice(0, cap);
+            this.sessions.set(ideId, [...current, ...visible]);
+            this.hasMoreSessions.set(ideId, page.length > cap);
+            this.updateIdeScanStatus(ideId, { state: 'done', found: current.length + visible.length });
+            void this.hydrateSessionSummaries(ideId, visible);
+        } catch (err) {
+            console.error(`[SessionHandoffService] Error loading more ${ideId} sessions:`, err);
+        } finally {
+            this.scanningIdes.delete(ideId);
+            this._onDidUpdateSessions.fire();
         }
+    }
+
+    async scanSingleIde(ideId: CapturedSession['sourceIde']): Promise<CapturedSession[]> {
+        if (this.scanningIdes.has(ideId)) {
+            return this.sessions.get(ideId) ?? [];
+        }
+
+        const extractor = this.extractors.find(e => e.ideId === ideId);
+        if (!extractor) { return this.sessions.get(ideId) ?? []; }
+
+        this.scanningIdes.add(ideId);
+        this.updateIdeScanStatus(ideId, { state: 'scanning', found: 0 });
+        this.hasMoreSessions.set(ideId, false);
+        this._onDidUpdateSessions.fire();
+
+        try {
+            const cap = this.getSessionCap();
+            const supportsPagedExtraction = extractor.supportsPagedExtraction === true;
+            const newSessions = supportsPagedExtraction
+                ? await extractor.extractAll(undefined, this.getCustomPaths(ideId), {
+                    limit: cap + 1,
+                    offset: 0,
+                })
+                : await extractor.extractAll(undefined, this.getCustomPaths(ideId));
+            newSessions.sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
+            const visible = supportsPagedExtraction ? newSessions.slice(0, cap) : newSessions;
+            this.sessions.set(ideId, visible);
+            this.hasMoreSessions.set(ideId, supportsPagedExtraction && newSessions.length > cap);
+            this.scannedIdes.add(ideId);
+            this.updateIdeScanStatus(ideId, { state: 'done', found: visible.length });
+            this._onDidUpdateSessions.fire();
+            void this.hydrateSessionSummaries(ideId, visible);
+            return visible;
+        } catch (err) {
+            this.updateIdeScanStatus(ideId, { state: 'error' });
+            this._onDidUpdateSessions.fire();
+            console.error(`[SessionHandoffService] Error scanning ${ideId}:`, err);
+            return this.sessions.get(ideId) ?? [];
+        } finally {
+            this.scanningIdes.delete(ideId);
+            this._onDidUpdateSessions.fire();
+        }
+    }
+
+    private async hydrateSessionSummaries(
+        ideId: CapturedSession['sourceIde'],
+        sessions: CapturedSession[]
+    ): Promise<void> {
+        const extractor = this.extractors.find(e => e.ideId === ideId);
+        if (!extractor?.hydrateSessionSummary || sessions.length === 0) {
+            return;
+        }
+
+        const CONCURRENCY = 4;
+        let changed = 0;
+        let removed = 0;
+        for (let i = 0; i < sessions.length; i += CONCURRENCY) {
+            const batch = sessions.slice(i, i + CONCURRENCY);
+            await Promise.all(batch.map(async session => {
+                const beforeTitle = session.title;
+                const beforeMessages = session.messages.length;
+                const beforeStatus = session.readStatus;
+                try {
+                    await extractor.hydrateSessionSummary?.(session);
+                    if (session.title !== beforeTitle || session.messages.length !== beforeMessages) {
+                        changed++;
+                    }
+                    if (beforeStatus !== 'empty' && session.readStatus === 'empty') {
+                        removed++;
+                    }
+                } catch (err) {
+                    console.error(`[SessionHandoffService] Error hydrating ${ideId} session summary:`, err);
+                }
+            }));
+
+            if (removed > 0) {
+                const current = this.sessions.get(ideId) ?? [];
+                this.sessions.set(ideId, current.filter(session => session.readStatus !== 'empty'));
+                this.updateIdeScanStatus(ideId, { state: 'done', found: this.sessions.get(ideId)?.length ?? 0 });
+            }
+
+            if ((changed > 0 || removed > 0) && ((changed + removed) % 20 === 0 || i + CONCURRENCY >= sessions.length)) {
+                this._onDidUpdateSessions.fire();
+            }
+
+            await new Promise<void>(resolve => setTimeout(resolve, 10));
+        }
+    }
+
+    async scanAllIdes(): Promise<CapturedSession[]> {
+        await this.scanExtractorsWithLimitedConcurrency(async (e) => {
+            await this.scanSingleIde(e.ideId);
+        });
+        return this.getSessions();
+    }
+
+    private async scanExtractorsWithLimitedConcurrency(
+        worker: (extractor: IChatExtractor) => Promise<void>
+    ): Promise<void> {
+        const queue = [...this.extractors];
+        const concurrency = Math.max(
+            1,
+            Math.min(SessionHandoffService.EXTRACTOR_SCAN_CONCURRENCY, queue.length)
+        );
 
         await Promise.all(
-            this.extractors.map(async (e) => {
-                try {
-                    const customPaths = this.getCustomPaths(e.ideId);
-
-                    let sessions: CapturedSession[] = [];
-                    if (workspacePaths.length <= 1) {
-                        // Single-root workspace: keep the simple and fast path.
-                        sessions = await e.extractAll(workspacePaths[0], customPaths);
-                    } else {
-                        // Multi-root workspace: some extractors use workspacePath as a lookup key.
-                        // Extract per root, then merge.
-                        const perRoot = await Promise.all(
-                            workspacePaths.map(ws => e.extractAll(ws, customPaths))
-                        );
-                        const merged = new Map<string, CapturedSession>();
-                        for (const list of perRoot) {
-                            for (const s of list) {
-                                if (!merged.has(s.rawPath)) {
-                                    merged.set(s.rawPath, s);
-                                }
-                            }
-                        }
-                        sessions = [...merged.values()];
+            Array.from({ length: concurrency }, async () => {
+                while (queue.length > 0) {
+                    const extractor = queue.shift();
+                    if (!extractor) {
+                        return;
                     }
-
-                    const matched = sessions.filter((s) => this.isAnyWorkspace(s, workspacePaths) && s.messages.length > 0);
-                    if (matched.length > 0) {
-                        this.cachedSessions.push(...matched);
-                        const prev = this.ideScanStatus.get(e.ideId)?.found ?? 0;
-                        this.updateIdeScanStatus(e.ideId, { found: prev + matched.length });
-                        this._onDidUpdateSessions.fire();
-                    }
-
-                    this.updateIdeScanStatus(e.ideId, { state: 'done' });
-                    this._onDidUpdateSessions.fire();
-                } catch (err) {
-                    this.updateIdeScanStatus(e.ideId, { state: 'error' });
-                    this._onDidUpdateSessions.fire();
-                    console.error(`[SessionHandoffService] Error extracting from ${e.ideId}:`, err);
+                    await worker(extractor);
+                    await new Promise<void>((resolve) => setImmediate(resolve));
                 }
             })
         );
-
-        this.cachedSessions.sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
-        this.scanning = false;
-        this._onDidUpdateSessions.fire();
-        return this.cachedSessions;
-    }
-
-    /**
-     * Scan for ALL sessions from all supported IDEs.
-     */
-    async scanAllSessions(): Promise<CapturedSession[]> {
-        this.scanMode = 'all';
-        this.allSessions = [];
-        this.scanning = true;
-        this.resetIdeScanStatus();
-        for (const e of this.extractors) {
-            this.updateIdeScanStatus(e.ideId, { state: 'scanning', found: 0 });
-        }
-        this._onDidUpdateSessions.fire(); // Clear UI immediately
-
-        await Promise.all(
-            this.extractors.map(async (e) => {
-                try {
-                    // Fetch-all should not be constrained by current workspace.
-                    const sessions = await e.extractAll(undefined, this.getCustomPaths(e.ideId));
-                    if (sessions.length > 0) {
-                        this.allSessions.push(...sessions);
-                        const prev = this.ideScanStatus.get(e.ideId)?.found ?? 0;
-                        this.updateIdeScanStatus(e.ideId, { found: prev + sessions.length });
-                        this._onDidUpdateSessions.fire();
-                    }
-                    this.updateIdeScanStatus(e.ideId, { state: 'done' });
-                    this._onDidUpdateSessions.fire();
-                } catch (err) {
-                    this.updateIdeScanStatus(e.ideId, { state: 'error' });
-                    this._onDidUpdateSessions.fire();
-                    console.error(`[SessionHandoffService] Error extracting all from ${e.ideId}:`, err);
-                }
-            })
-        );
-
-        this.allSessions.sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
-        this.scanning = false;
-        this._onDidUpdateSessions.fire();
-        return this.allSessions;
-    }
-
-    /**
-     * Backward compatibility for existing code.
-     */
-    async scanAllIDEs(): Promise<CapturedSession[]> {
-        return this.scanProjectSessions();
     }
 
     getSessions(): CapturedSession[] {
-        return this.scanMode === 'all' ? this.allSessions : this.cachedSessions;
-    }
-
-    getScanMode(): 'project' | 'all' {
-        return this.scanMode;
+        const all: CapturedSession[] = [];
+        for (const sessions of this.sessions.values()) {
+            all.push(...sessions);
+        }
+        return all.sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
     }
 
     public searchSessions(query: SessionSearchQuery): SessionSearchMatch[] {
         return this.searchEngine.search(this.getSessions(), query);
     }
 
-    private normalizePath(p: string): string {
-        return path.resolve(p).replace(/\\/g, '/').toLowerCase();
-    }
-
-    /**
-     * Best-effort matching: prefer explicit workspacePath, fall back to rawPath substring match.
-     */
-    private isSameWorkspace(session: CapturedSession, workspacePath: string): boolean {
-        const ws = this.normalizePath(workspacePath);
-
-        if (session.workspacePath) {
-            const sessionWs = this.normalizePath(session.workspacePath);
-            if (sessionWs === ws) {
-                return true;
-            }
-            // Some IDEs (notably VS Code/Copilot workspaceStorage) may store a workspace file path
-            // (e.g. a .code-workspace) instead of a folder path. Treat containment as a match.
-            if (sessionWs.includes(ws) || ws.includes(sessionWs)) {
-                return true;
-            }
-        }
-
-        if (session.rawPath) {
-            const raw = this.normalizePath(session.rawPath);
-            return raw.includes(ws);
-        }
-
-        return false;
-    }
-
-    /**
-     * Returns true if the session matches any of the provided workspace paths.
-     * Used for multi-root workspace support.
-     */
-    private isAnyWorkspace(session: CapturedSession, workspacePaths: string[]): boolean {
-        return workspacePaths.some(wp => this.isSameWorkspace(session, wp));
-    }
-
-    getGroupedSessions(): Map<string, CapturedSession[]> {
-        const sessions = this.getSessions();
-        const groups = new Map<string, CapturedSession[]>();
-        
-        // Ensure all known IDEs have a group, even if empty
+    getGroupedSessions(): Map<CapturedSession['sourceIde'], CapturedSession[]> {
+        const groups = new Map<CapturedSession['sourceIde'], CapturedSession[]>();
         for (const e of this.extractors) {
-            groups.set(e.ideId, []);
-        }
-
-        for (const s of sessions) {
-            const group = groups.get(s.sourceIde) || [];
-            group.push(s);
-            groups.set(s.sourceIde, group);
+            groups.set(e.ideId, this.sessions.get(e.ideId) ?? []);
         }
         return groups;
     }
@@ -786,6 +784,7 @@ export class SessionHandoffService {
 
         const lines: string[] = [
             `# ${ideName}${projectName ? ` — ${projectName}` : ''}`,
+            ...(session.workspacePath ? [session.workspacePath] : []),
             I18n.getMessage('transcript.messages', dateStr, String(session.messages.length)),
             '',
         ];
@@ -813,10 +812,6 @@ export class SessionHandoffService {
 
         lines.push('---');
         return lines.join('\n');
-    }
-
-    public getCachedSessions(): CapturedSession[] {
-        return this.cachedSessions;
     }
 
     /**
@@ -893,4 +888,3 @@ export class SessionHandoffService {
         session.messagesLoaded = true;
     }
 }
-

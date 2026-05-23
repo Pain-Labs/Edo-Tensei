@@ -9,12 +9,11 @@
     "config.customScanPaths.description": "各 IDE session 历史的自定义绝对路径。（例如 { \"claude\": [\"D:/custom/.claude\"] }）",
     "viewContainer.title": "Edo Tensei",
     "view.sessions.name": "Edo Tensei",
-    "view.welcome": "Edo Tensei — 跨 IDE 接手 AI Session，不用从头说起。\n\n[扫描（当前项目）](command:edoTensei.scanSessions)\n\n[扫描（所有项目）](command:edoTensei.fetchAllSessions)\n\n[生成 Agent Skill](command:edoTensei.generateAgentSkill)",
+    "view.welcome": "Edo Tensei — 跨 IDE 接手 AI Session，不用从头说起。\n\n[⚡ 扫描所有 IDE](command:edoTensei.scanAllIdes)\n\n[生成 Agent Skill](command:edoTensei.generateAgentSkill)",
     "command.resurrectSession.title": "Edo Tensei：复活 Session",
     "command.copyHandoffPrompt.title": "Edo Tensei：复制接手 Prompt",
     "command.openSessionFile.title": "Edo Tensei：打开 Session 文件",
-    "command.scanSessions.title": "扫描项目 Sessions",
-    "command.fetchAllSessions.title": "获取所有历史 Sessions",
+    "command.scanAllIdes.title": "扫描所有 IDE",
     "command.exportAllSessions.title": "导出所有已解析 Sessions 到 .edo_tensei",
     "command.exportSession.title": "导出已解析 Session 到 .edo_tensei",
     "command.previewRawSession.title": "预览原始 Session 文件",
@@ -26,5 +25,8 @@
     "command.generateAgentSkill.title": "生成 Agent Skill",
     "command.showMcpConfig.title": "显示 MCP 配置",
     "config.lazyLoadMessages.description": "启用懒加载：扫描时只读取第一条消息，鼠标悬停或预览时才加载完整内容。关闭可还原即时加载模式，便于调试对比。",
-    "config.mcpConfig.enabled.description": "启用 MCP 配置 UI（Beta）。关闭时将隐藏 MCP 按钮并停用指令。"
+    "config.mcpConfig.enabled.description": "启用 MCP 配置 UI（Beta）。关闭时将隐藏 MCP 按钮并停用指令。",
+    "command.refreshIde.title": "只重新扫描此 IDE",
+    "command.loadMoreSessions.title": "加载更多 Sessions",
+    "config.maxSessionsPerIde.description": "每个 IDE 最多显示的 session 数量。超出时会显示"加载更多"按钮。若想一次看到更多 session 可提高此值（可能会使扫描变慢）。"
 }

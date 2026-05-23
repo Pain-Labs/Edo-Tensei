@@ -50,8 +50,8 @@
 
 ## 주요 기능
 
-- **멀티 IDE 추출**: 지원되는 모든 IDE를 자동 스캔하여 `IDE → 프로젝트 → 세션` 형태로 표시합니다.
-- **프로젝트 범위 스캔**: "프로젝트 세션 스캔"으로 현재 워크스페이스와 일치하는 세션만 필터링합니다.
+- **IDE별 온디맨드 스캔**: 사이드바에서 IDE를 펼칠 때 해당 IDE만 스캔합니다. 시작 시 과도한 디스크 I/O를 피하면서, 툴바의 ⚡ **Scan All IDEs** 버튼으로 전체 스캔도 가능합니다.
+- **페이지네이션**: 각 IDE는 처음에 최대 300개의 세션을 표시합니다. 더 많은 기록이 있으면 하단에 **Load More**가 나타나 대량의 히스토리에서도 트리가 반응성을 유지합니다.
 - **두 가지 인계 모드**:
   - **경로 모드** *(기본값)*: 세션 파일 경로 + IDE별 읽기 가이드를 출력합니다. 토큰 효율적이며, 수신 에이전트는 필요한 부분만 읽습니다.
   - **전체 텍스트 모드**: 전체 대화를 포함합니다. 어디서나 작동하지만 더 많은 토큰을 사용합니다.
@@ -68,13 +68,14 @@
 
 ## 빠른 시작
 
-![Operation Guide](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/ui_operation_guide.png)
+![Edo Tensei product demo](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/edo-tensei-product-demo.gif)
 
 1. VS Code 액티비티 바의 **Edo Tensei** 뷰(균열된 폴더 아이콘)를 엽니다.
-2. **Scan (Current Project)** 또는 **Scan (All Projects)**를 클릭하여 대화 기록을 검색합니다.
-3. **세션을 직접 클릭**하면 핸드오프 프롬프트가 즉시 클립보드에 복사됩니다.
-4. (선택 사항) 세션을 우클릭하면 내보내기나 미리보기와 같은 **고급 기능** (Advanced)을 사용할 수 있습니다.
-5. 새로운 IDE / AI 에이전트에 프롬프트를 **붙여넣고** 작업을 계속합니다.
+2. **IDE를 펼치면** 첫 펼침 시 해당 IDE만 스캔합니다. 툴바의 ⚡ **Scan All IDEs** 버튼으로 모든 IDE를 한 번에 스캔할 수도 있습니다.
+3. 해당 IDE에 더 많은 세션이 있으면 하단의 **Load More**로 다음 페이지를 불러옵니다.
+4. **세션을 직접 클릭**하면 핸드오프 프롬프트가 즉시 클립보드에 복사됩니다.
+5. (선택 사항) 세션을 우클릭하면 내보내기나 미리보기와 같은 **고급 기능** (Advanced)을 사용할 수 있습니다. IDE 행의 **Export All** 버튼으로 해당 IDE의 모든 세션을 내보낼 수 있습니다.
+6. 새로운 IDE / AI 에이전트에 프롬프트를 **붙여넣고** 작업을 계속합니다.
 
 ---
 
@@ -107,14 +108,15 @@ VS Code 설정에서 `edoTensei`를 검색합니다.
 
 | 명령어 | 설명 |
 | :--- | :--- |
-| Scan Project Sessions | 현재 워크스페이스와 일치하는 세션 찾기 |
-| Fetch ALL Historical Sessions | 모든 IDE의 모든 로컬 세션 스캔 |
+| Scan All IDEs | 모든 IDE의 모든 로컬 세션 스캔(툴바 ⚡ 버튼) |
+| Refresh This IDE | 단일 IDE 다시 스캔(IDE 행의 inline 버튼) |
+| Load More Sessions | 해당 IDE의 다음 페이지 불러오기 |
 | Copy Handoff Prompt | 선택한 세션의 인계 프롬프트 복사 |
 | View Parsed Session | 렌더링된 Markdown 미리보기로 세션 열기 |
 | Preview Raw Session File | 원본 세션 파일 열기 |
 | Copy Raw File Path | 세션 파일 경로를 클립보드에 복사 |
 | Export Session to .edo_tensei | 인계 프롬프트를 Markdown 파일로 저장 |
-| Export All Sessions to .edo_tensei | 스캔된 모든 세션을 `.edo_tensei/`에 저장 |
+| Export All Sessions to .edo_tensei | 지정한 IDE의 모든 세션을 `.edo_tensei/`에 저장(IDE 행의 inline 버튼) |
 | Generate Agent Skill | 다른 AI 도구용으로 재사용 가능한 `edo-tensei` skill/rule 파일 생성 |
 | Show MCP Config | AI 에이전트에 복사하여 붙여넣을 수 있는 MCP 서버 구성을 얻기 위한 UI 패널 열기 |
 

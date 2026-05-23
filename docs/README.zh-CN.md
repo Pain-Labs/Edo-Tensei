@@ -50,8 +50,8 @@ AI 额度在任务进行到一半时用完，切换到另一款 IDE 不应该意
 
 ## 核心功能
 
-- **多 IDE 提取**：自动扫描所有支持的 IDE，以 `IDE → 项目 → 会话` 三层结构呈现。
-- **项目范围扫描**：「扫描项目会话」只列出与当前工作区匹配的对话记录。
+- **按 IDE 随需扫描**：展开任一 IDE 即只扫描该 IDE 的本地会话，避免打开侧边栏时一次执行大量磁盘 I/O。也可使用工具栏 ⚡ **Scan All IDEs** 一次扫描全部。
+- **分页加载**：每个 IDE 最多先显示 300 条会话；若还有更多记录，底部会出现 **Load More**，让大量历史记录仍保持流畅。
 - **两种交接模式**：
   - **路径模式**（默认）：输出会话文件路径 + 各 IDE 专属阅读指引。节省 token，接手端只读必要段落。
   - **全文模式**：嵌入完整对话内容。兼容性最广，但 token 消耗较高。
@@ -68,13 +68,14 @@ AI 额度在任务进行到一半时用完，切换到另一款 IDE 不应该意
 
 ## 快速开始
 
-![Operation Guide](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/ui_operation_guide.png)
+![Edo Tensei 产品演示](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/edo-tensei-product-demo.gif)
 
 1. 点击 VS Code 活动栏的 **Edo Tensei** 图标（裂痕文件夹图标）打开侧边栏。
-2. 点击 **Scan (Current Project)** 或 **Scan (All Projects)** 寻找对话记录。
-3. **直接点击某个 session** 即可瞬间将交接 Prompt 复制到剪贴板。
-4. (选用) 右键点击 session 可使用 **进阶功能** (Advanced)，如导出或预览原始文件。
-5. **粘贴** Prompt 到新的 IDE / AI Agent，继续任务。
+2. **展开某个 IDE**，第一次展开时只会扫描该 IDE。也可使用工具栏 ⚡ **Scan All IDEs** 一次扫描全部 IDE。
+3. 如果该 IDE 还有更多会话，点击底部 **Load More** 加载下一页。
+4. **直接点击某个 session** 即可瞬间将交接 Prompt 复制到剪贴板。
+5. (选用) 右键点击 session 可使用 **进阶功能** (Advanced)，如导出或预览原始文件；IDE 行上的 **Export All** 按钮可导出该 IDE 的所有会话。
+6. **粘贴** Prompt 到新的 IDE / AI Agent，继续任务。
 
 ---
 
@@ -107,14 +108,15 @@ AI 额度在任务进行到一半时用完，切换到另一款 IDE 不应该意
 
 | 命令 | 说明 |
 | :--- | :--- |
-| Scan Project Sessions | 扫描符合当前工作区的会话 |
-| Fetch ALL Historical Sessions | 扫描所有 IDE 的全部本地会话 |
+| Scan All IDEs | 扫描所有 IDE 的全部本地会话（工具栏 ⚡ 按钮） |
+| Refresh This IDE | 重新扫描单一 IDE（IDE 行上的 inline 按钮） |
+| Load More Sessions | 加载该 IDE 的下一页会话 |
 | Copy Handoff Prompt | 复制选取会话的交接 Prompt |
 | View Parsed Session | 以 Markdown 预览格式打开会话 |
 | Preview Raw Session File | 打开原始会话文件 |
 | Copy Raw File Path | 复制会话文件路径到剪贴板 |
 | Export Session to .edo_tensei | 将交接 Prompt 保存为 Markdown 文件 |
-| Export All Sessions to .edo_tensei | 将所有已扫描的会话导出 |
+| Export All Sessions to .edo_tensei | 将指定 IDE 的所有会话导出到 `.edo_tensei/`（IDE 行上的 inline 按钮） |
 | Generate Agent Skill | 为其他 AI 工具生成可复用的 `edo-tensei` skill/rule 文件 |
 | Show MCP Config | 打开 UI 面板，获取适用于你的 AI 代理的 MCP 服务器配置文件（可直接复制粘贴） |
 

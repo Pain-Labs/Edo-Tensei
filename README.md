@@ -50,8 +50,8 @@ This tool is named after this concept to symbolize "context reincarnation" in AI
 
 ## Key Features
 
-- **Multi-IDE Extraction**: Automatically scans all supported IDEs and surfaces sessions grouped by `IDE → Project → Session`.
-- **Project-Scoped Scan**: "Scan Project Sessions" filters to only sessions that match your current workspace.
+- **Per-IDE On-Demand Scanning**: Expand any IDE in the sidebar to scan it independently — only that IDE performs disk I/O, so the tree loads instantly. Use the toolbar **Scan All IDEs** button (⚡) to scan everything at once.
+- **Pagination**: Sessions are shown in pages of up to 300. A **Load More** button appears at the bottom of any IDE that has additional sessions, keeping the tree responsive on machines with thousands of sessions.
 - **Two Handoff Modes**:
   - **Path mode** *(default)*: Outputs the session file path + a per-IDE reading guide. Token-efficient; the receiving agent reads only what it needs.
   - **Full-text mode**: Embeds the complete conversation. Works everywhere, uses more tokens.
@@ -68,13 +68,14 @@ This tool is named after this concept to symbolize "context reincarnation" in AI
 
 ## Quick Start
 
-![Operation Guide](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/ui_operation_guide.png)
+![Edo Tensei product demo](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/edo-tensei-product-demo.gif)
 
 1. Open the **Edo Tensei** view in the VS Code Activity Bar (cracked folder icon).
-2. Click **Scan (Current Project)** or **Scan (All Projects)** to find your session history.
-3. **Click a session** to instantly copy the handoff prompt to your clipboard.
-4. (Optional) Right-click a session for **Advanced** options like Export or Preview.
-5. **Paste** the prompt into your target IDE/Agent and continue.
+2. **Expand an IDE** in the sidebar — it scans automatically on first expand. Use the toolbar ⚡ **Scan All IDEs** button to scan all IDEs at once.
+3. If an IDE has more sessions than the current page, click **Load More** at the bottom of that IDE's list.
+4. **Click a session** to instantly copy the handoff prompt to your clipboard.
+5. (Optional) Right-click a session for **Advanced** options like Export or Preview. Use the IDE-row **Export All** button (💾) to export every session for that IDE.
+6. **Paste** the prompt into your target IDE/Agent and continue.
 
 ---
 
@@ -107,14 +108,15 @@ All commands are available via the Command Palette (`Ctrl+Shift+P`) under the `E
 
 | Command | Description |
 | :--- | :--- |
-| Scan Project Sessions | Find sessions matching the current workspace |
-| Fetch ALL Historical Sessions | Scan every IDE for all local sessions |
+| Scan All IDEs | Scan every IDE for all local sessions (toolbar ⚡ button) |
+| Refresh This IDE | Re-scan a single IDE (inline button on the IDE row) |
+| Load More Sessions | Load the next page of sessions for an IDE |
 | Copy Handoff Prompt | Copy handoff prompt for the selected session |
 | View Parsed Session | Open a rendered Markdown preview of the session |
 | Preview Raw Session File | Open the original session file |
 | Copy Raw File Path | Copy the session file path to clipboard |
 | Export Session to .edo_tensei | Save handoff prompt as a Markdown file |
-| Export All Sessions to .edo_tensei | Save all scanned sessions to `.edo_tensei/` |
+| Export All Sessions to .edo_tensei | Save all sessions for the selected IDE to `.edo_tensei/` (inline button on the IDE row) |
 | Generate Agent Skill | Generate a reusable `edo-tensei` skill/rule file for another AI agent |
 | Show MCP Config | Open UI panel to get copy-paste MCP server configuration for your AI client |
 

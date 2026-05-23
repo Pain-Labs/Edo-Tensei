@@ -2,7 +2,7 @@ export const workspace = {
   getConfiguration: (_section?: string) => ({
     get: <T>(_key: string, defaultValue: T): T => defaultValue,
   }),
-  workspaceFolders: undefined as undefined,
+  workspaceFolders: undefined as Array<{ uri: { fsPath: string } }> | undefined,
 }
 
 export const TreeItemCollapsibleState = {
@@ -11,11 +11,17 @@ export const TreeItemCollapsibleState = {
   Expanded: 2,
 } as const
 
+export class MarkdownString {
+  supportHtml = false
+  constructor(public readonly value: string = '') {}
+}
+
 export class TreeItem {
+  id?: string
   contextValue?: string
   description?: string
   iconPath?: unknown
-  tooltip?: string
+  tooltip?: string | MarkdownString
   command?: unknown
 
   constructor(

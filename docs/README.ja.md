@@ -50,8 +50,8 @@ AIの使用枠がタスクの途中で切れても、別のIDEに切り替える
 
 ## 主な機能
 
-- **マルチIDE抽出**：対応するすべてのIDEを自動スキャンし、`IDE → プロジェクト → セッション`の形式で表示します。
-- **プロジェクトスコープスキャン**：「プロジェクトセッションをスキャン」で現在のワークスペースに一致するセッションのみを表示します。
+- **IDEごとのオンデマンドスキャン**：サイドバーでIDEを展開したとき、そのIDEだけをスキャンします。起動時の大量ディスクI/Oを避けつつ、ツールバーの ⚡ **Scan All IDEs** ですべてを一括スキャンできます。
+- **ページネーション**：各IDEは最初に最大300件のセッションを表示します。追加の履歴がある場合は下部に **Load More** が表示され、大量の履歴でもツリーを軽快に保ちます。
 - **2つの引き継ぎモード**：
   - **パスモード**（デフォルト）：セッションファイルのパス + IDE別の読み取りガイドを出力。トークン効率が高く、受け取るエージェントは必要な部分だけ読みます。
   - **全文モード**：会話全体を埋め込みます。どこでも使えますが、トークン消費が増えます。
@@ -68,13 +68,14 @@ AIの使用枠がタスクの途中で切れても、別のIDEに切り替える
 
 ## クイックスタート
 
-![Operation Guide](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/ui_operation_guide.png)
+![Edo Tensei product demo](https://raw.githubusercontent.com/Pain-Labs/Edo-Tensei/main/docs/assets/edo-tensei-product-demo.gif)
 
 1. VS CodeのアクティビティバーにあるEdo Tenseiビュー（ひび割れたフォルダーアイコン）を開きます。
-2. **Scan (Current Project)** または **Scan (All Projects)** をクリックして会話履歴を検索します。
-3. **セッションを直接クリック** すると、引き継ぎ用プロンプトが即座にクリップボードにコピーされます。
-4. (オプション) セッションを右クリックすると、エクスポートやプレビューなどの **詳細機能** (Advanced) を使用できます。
-5. 新しい IDE / AI エージェントにプロンプトを **貼り付けて**、作業を続行します。
+2. **IDEを展開** すると、初回展開時にそのIDEだけをスキャンします。ツールバーの ⚡ **Scan All IDEs** ですべてのIDEを一括スキャンすることもできます。
+3. そのIDEにさらにセッションがある場合は、下部の **Load More** で次のページを読み込みます。
+4. **セッションを直接クリック** すると、引き継ぎ用プロンプトが即座にクリップボードにコピーされます。
+5. (オプション) セッションを右クリックすると、エクスポートやプレビューなどの **詳細機能** (Advanced) を使用できます。IDE行の **Export All** ボタンで、そのIDEの全セッションをエクスポートできます。
+6. 新しい IDE / AI エージェントにプロンプトを **貼り付けて**、作業を続行します。
 
 ---
 
@@ -107,14 +108,15 @@ VS Codeの設定で`edoTensei`を検索します。
 
 | コマンド | 説明 |
 | :--- | :--- |
-| Scan Project Sessions | 現在のワークスペースに一致するセッションを検索 |
-| Fetch ALL Historical Sessions | すべてのIDEの全ローカルセッションをスキャン |
+| Scan All IDEs | すべてのIDEの全ローカルセッションをスキャン（ツールバー ⚡ ボタン） |
+| Refresh This IDE | 単一のIDEを再スキャン（IDE行のinlineボタン） |
+| Load More Sessions | そのIDEの次ページを読み込む |
 | Copy Handoff Prompt | 選択したセッションの引き継ぎプロンプトをコピー |
 | View Parsed Session | レンダリングされたMarkdownプレビューとしてセッションを開く |
 | Preview Raw Session File | 元のセッションファイルを開く |
 | Copy Raw File Path | セッションファイルのパスをクリップボードにコピー |
 | Export Session to .edo_tensei | 引き継ぎプロンプトをMarkdownファイルとして保存 |
-| Export All Sessions to .edo_tensei | スキャンされたすべてのセッションを`.edo_tensei/`に保存 |
+| Export All Sessions to .edo_tensei | 指定したIDEの全セッションを`.edo_tensei/`に保存（IDE行のinlineボタン） |
 | Generate Agent Skill | 他の AI ツール向けに再利用可能な `edo-tensei` skill/rule ファイルを生成 |
 | Show MCP Config | UIパネルを開き、お使いのAIエージェントにコピー＆ペーストできるMCPサーバー構成を取得 |
 

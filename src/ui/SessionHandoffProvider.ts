@@ -52,16 +52,44 @@ function resolveProjectName(session: CapturedSession): string | undefined {
     return undefined;
 }
 
+/** 建立統一格式的 MarkdownString tooltip，供 SessionItem 初始化與 resolveTreeItem 共用 */
+function buildSessionTooltip(
+    session: CapturedSession,
+    displayTitle: string,
+    messageCount: string,
+    tokenLabel: string,
+    isEstimated: boolean
+): vscode.MarkdownString {
+    const date = new Date(session.capturedAt);
+    const projectName = resolveProjectName(session);
+    const ideName = session.sourceIde.charAt(0).toUpperCase() + session.sourceIde.slice(1);
+    const truncated = displayTitle.length > 60 ? displayTitle.substring(0, 60) + '…' : displayTitle;
+    const tokenSuffix = isEstimated ? ' est.' : '';
+
+    const metaLines: string[] = [];
+    if (projectName) metaLines.push(`**專案** ${projectName}`);
+    if (session.workspacePath) metaLines.push(`**路徑** ${session.workspacePath}`);
+    metaLines.push(`**IDE** ${ideName}`);
+    metaLines.push(`**時間** ${date.toLocaleString()}`);
+    metaLines.push(`**訊息數** ${messageCount} 則（${tokenLabel} tokens${tokenSuffix}）`);
+    if (session.rawPath) metaLines.push(`**檔案** \`${session.rawPath}\``);
+
+    const tip = new vscode.MarkdownString(`**${truncated}**\n\n${metaLines.join('  \n')}`);
+    tip.supportHtml = false;
+    return tip;
+}
+
 // ── TreeItem 定義 ───────────────────────────────────────────────────────────
 
 export class IDEParentItem extends vscode.TreeItem {
     constructor(
         public readonly label: string,
-        public readonly ideId: string,
+        public readonly ideId: CapturedSession['sourceIde'],
         public readonly sessionCount: number,
         public readonly statusText?: string
     ) {
         super(label, vscode.TreeItemCollapsibleState.Collapsed);
+        this.id = `ide-${ideId}`;
         this.contextValue = 'ideParentItem';
         this.description = statusText ?? I18n.getMessage('tree.sessionCount', String(sessionCount));
 
@@ -79,24 +107,33 @@ export class IDEParentItem extends vscode.TreeItem {
     }
 }
 
-export class ProjectParentItem extends vscode.TreeItem {
+export class LoadingItem extends vscode.TreeItem {
+    constructor() {
+        super('Loading…', vscode.TreeItemCollapsibleState.None);
+        this.iconPath = new vscode.ThemeIcon('loading~spin');
+    }
+}
+
+export class LoadMoreItem extends vscode.TreeItem {
     constructor(
-        public readonly projectName: string,
-        public readonly ideId: string,
-        public readonly sessions: CapturedSession[]
+        public readonly ideId: CapturedSession['sourceIde']
     ) {
-        super(projectName, vscode.TreeItemCollapsibleState.Collapsed);
-        this.contextValue = 'projectParentItem';
-        this.description = I18n.getMessage('tree.sessionCount', String(sessions.length));
-        this.iconPath = new vscode.ThemeIcon('folder-library');
+        super('Load more…', vscode.TreeItemCollapsibleState.None);
+        this.iconPath = new vscode.ThemeIcon('chevron-down');
+        this.contextValue = 'loadMoreItem';
+        this.command = {
+            command: 'edoTensei.loadMoreSessions',
+            title: 'Load More Sessions',
+            arguments: [ideId],
+        };
     }
 }
 
 export class SessionItem extends vscode.TreeItem {
     constructor(
         public readonly session: CapturedSession,
-        /** 若 session 直接掛在 IDE 下（沒有 project 層），則在 label 顯示 project 名作 fallback */
-        showProject = false
+        showProject = false,
+        isCurrentWorkspace = false
     ) {
         const date = new Date(session.capturedAt);
         const timeLabel = date.toLocaleString([], {
@@ -120,38 +157,19 @@ export class SessionItem extends vscode.TreeItem {
             this.description = timeLabel;
         }
 
-        const projectName = showProject ? resolveProjectName(session) : (session.workspacePath ? path.basename(session.workspacePath) : 'Unknown Workspace');
-        const truncatedTitle = displayTitle.length > 50 ? displayTitle.substring(0, 50) + '...' : displayTitle;
-
         if (isLazyLoadEnabled() && session.messagesLoaded === false) {
-            // Lazy mode: 優先用檔案大小估算 token，無需 hover
             const tokenLabel = session.fileSizeBytes
                 ? estimateTokenLabelFromSize(session.fileSizeBytes)
                 : '—';
             const msgCount = session.messages.length > 0
                 ? `${session.messages.length}+`
                 : '—';
-                
-            this.tooltip = [
-                `📁 ${projectName || session.sourceIde}`,
-                `🕒 ${date.toLocaleString()}`,
-                `📝 ${truncatedTitle}`,
-                `💬 ${msgCount} messages`,
-                `⚡ ${tokenLabel} tokens (est.)`,
-                `${session.rawPath}`
-            ].join('\n');
+            this.tooltip = buildSessionTooltip(session, displayTitle, msgCount, tokenLabel, true);
         } else {
-            const tokenLabel = estimateTokenLabel(session.messages);
-            this.tooltip = [
-                `📁 ${projectName || session.sourceIde}`,
-                `🕒 ${date.toLocaleString()}`,
-                `📝 ${truncatedTitle}`,
-                `💬 ${session.messages.length} messages`,
-                `⚡ ${tokenLabel} tokens (est.)`,
-                `${session.rawPath}`
-            ].join('\n');
+            this.tooltip = buildSessionTooltip(session, displayTitle, String(session.messages.length), estimateTokenLabel(session.messages), false);
         }
-        this.iconPath = new vscode.ThemeIcon('comment-discussion');
+        this.id = session.rawPath || `${session.sourceIde}-${session.capturedAt}`;
+        this.iconPath = new vscode.ThemeIcon(isCurrentWorkspace ? 'home' : 'comment-discussion');
         this.contextValue = 'sessionItem';
 
         // 預設點擊行為：查看已解析 Session（Markdown 預覽）
@@ -288,96 +306,77 @@ export class SessionHandoffProvider implements vscode.TreeDataProvider<vscode.Tr
         const session = element.session;
         await this.sessionService.ensureSessionMessagesLoaded(session);
 
-        const date = new Date(session.capturedAt);
-        const tokenLabel = estimateTokenLabel(session.messages);
-        item.tooltip = [
-            `Source: ${session.sourceIde}`,
-            `Project: ${session.workspacePath || 'Unknown'}`,
-            `Last Edit: ${date.toLocaleString()}`,
-            `Messages: ${session.messages.length}  •  ${tokenLabel} tokens (est.)`,
-            `Path: ${session.rawPath}`,
-        ].join('\n');
+        const displayTitle = session.title || SessionHandoffProvider.extractMeaningfulTitle(session.messages);
+        item.tooltip = buildSessionTooltip(
+            session,
+            displayTitle,
+            String(session.messages.length),
+            estimateTokenLabel(session.messages),
+            false
+        );
         return item;
     }
 
     async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
 
-        // ── 根節點：IDE 列表 ──────────────────────────────────────────────────
+        // ── 根節點：所有已知 IDE ──────────────────────────────────────────────
         if (!element) {
-            const grouped = this.sessionService.getGroupedSessions();
-            const items: IDEParentItem[] = [];
-
-            const isScanning = this.sessionService.isScanning();
+            const allIdeIds = this.sessionService.getKnownIdeIds();
             const statusMap = this.sessionService.getIdeScanStatus();
+            const grouped = this.sessionService.getGroupedSessions();
 
-            const ideIds: CapturedSession['sourceIde'][] = isScanning
-                ? this.sessionService.getKnownIdeIds()
-                : [...grouped.keys()] as CapturedSession['sourceIde'][];
+            return allIdeIds.map(ideId => {
+                const label = ideId.charAt(0).toUpperCase() + ideId.slice(1);
+                const sessions = grouped.get(ideId) ?? [];
+                const status = statusMap.get(ideId);
 
-            for (const ideId of ideIds) {
-                const sessions = grouped.get(ideId) || [];
-
-                // 非掃描中：只有當真的有 session 時才顯示該 IDE 資料夾
-                if (!isScanning && sessions.length === 0) {
-                    continue;
+                let statusText: string | undefined;
+                if (status?.state === 'scanning') {
+                    statusText = 'Scanning…';
+                } else if (!this.sessionService.isIdeScanned(ideId)) {
+                    statusText = '—';
+                } else if (this.sessionService.hasPendingSessions(ideId)) {
+                    statusText = `${sessions.length}+ sessions`;
                 }
 
-                const label = ideId.charAt(0).toUpperCase() + ideId.slice(1);
-                const status = statusMap.get(ideId);
-                const statusText = isScanning
-                    ? `${status?.state ?? 'scanning'} • ${status?.found ?? 0}`
-                    : undefined;
-
-                items.push(new IDEParentItem(label, ideId, sessions.length, statusText));
-            }
-            return items;
+                return new IDEParentItem(label, ideId, sessions.length, statusText);
+            });
         }
 
-        // ── IDE 節點：分 project 或直接列 session ────────────────────────────
+        // ── IDE 節點：懶加載，展開時觸發掃描 ─────────────────────────────────
         if (element instanceof IDEParentItem) {
-            const grouped = this.sessionService.getGroupedSessions();
-            const sessions = grouped.get(element.ideId) || [];
+            const ideId = element.ideId;
+            const status = this.sessionService.getIdeScanStatus().get(ideId);
 
-            // 依 project 名稱分群
-            const withProject = new Map<string, CapturedSession[]>();
-            const noProject: CapturedSession[] = [];
-
-            for (const s of sessions) {
-                const pName = resolveProjectName(s);
-                if (pName) {
-                    const list = withProject.get(pName) ?? [];
-                    list.push(s);
-                    withProject.set(pName, list);
-                } else {
-                    noProject.push(s);
-                }
+            if (status?.state === 'scanning') {
+                return [new LoadingItem()];
             }
 
-            const children: vscode.TreeItem[] = [];
+            if (!this.sessionService.isIdeScanned(ideId)) {
+                void this.sessionService.scanSingleIde(ideId);
+                return [new LoadingItem()];
+            }
 
-            // 依 project 內最新 session 的時間進行排序（最新的在最上面）
-            const sortedProjects = [...withProject.entries()].sort(([, aSessions], [, bSessions]) => {
-                const aMaxTime = Math.max(...aSessions.map(s => new Date(s.capturedAt).getTime()));
-                const bMaxTime = Math.max(...bSessions.map(s => new Date(s.capturedAt).getTime()));
-                return bMaxTime - aMaxTime;
+            const grouped = this.sessionService.getGroupedSessions();
+            const sessions = grouped.get(ideId) ?? [];
+            const workspacePaths = (vscode.workspace.workspaceFolders ?? [])
+                .map(f => path.resolve(f.uri.fsPath).toLowerCase().replace(/\\/g, '/'));
+
+            const items: vscode.TreeItem[] = sessions.map(s => {
+                const isCurrentWs = s.workspacePath
+                    ? workspacePaths.some(wp => {
+                        const sWs = path.resolve(s.workspacePath!).toLowerCase().replace(/\\/g, '/');
+                        return sWs === wp || sWs.startsWith(wp + '/') || wp.startsWith(sWs + '/');
+                    })
+                    : false;
+                return new SessionItem(s, /* showProject */ true, isCurrentWs);
             });
 
-            // 有 project 的 → ProjectParentItem
-            for (const [pName, pSessions] of sortedProjects) {
-                children.push(new ProjectParentItem(pName, element.ideId, pSessions));
+            if (this.sessionService.hasPendingSessions(ideId)) {
+                items.push(new LoadMoreItem(ideId));
             }
 
-            // 沒有 project 的 → 直接掛 SessionItem（description 顯示 project 作 hint）
-            for (const s of noProject) {
-                children.push(new SessionItem(s, /* showProject */ false));
-            }
-
-            return children;
-        }
-
-        // ── Project 節點：列 session ──────────────────────────────────────────
-        if (element instanceof ProjectParentItem) {
-            return element.sessions.map(s => new SessionItem(s, false));
+            return items;
         }
 
         return [];

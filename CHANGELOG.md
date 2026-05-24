@@ -22,7 +22,7 @@ All notable changes to the "Edo Tensei" extension will be documented in this fil
 
 ### 🔧 Internal
 
-- Updated `SkillGenerator.ts` to read session docs from `skills/edo-tensei/` instead of deleted `docs/skills/`
+- Refactored `SkillGenerator.ts`: replaced 276-line hardcoded template with a direct read of `skills/edo-tensei/SKILL.md`; button-generated skill is now always in sync with the canonical SKILL.md and copies all `session-*.md` files alongside it
 
 ## [1.2.0] - Per-IDE Scanning, Pagination & UX Polish - 2026-05-20
 

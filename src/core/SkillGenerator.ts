@@ -35,9 +35,8 @@ export class SkillGenerator {
         return workspaceFolders[0].uri.fsPath;
     }
 
-    // dist/extension.js is one level below the extension root
     private static getDocsSkillsDir(): string {
-        return path.join(__dirname, '..', 'docs', 'skills');
+        return path.join(__dirname, '..', 'skills', 'edo-tensei');
     }
 
     // Reads docs/skills/session-{slug}.md, extracts the "## Storage Paths"

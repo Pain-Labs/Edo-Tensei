@@ -7,6 +7,7 @@ import { readFile } from 'fs/promises';
 import { SessionHandoffService } from './core/SessionHandoffService';
 import { SkillGenerator } from './core/SkillGenerator';
 import { SessionHandoffProvider, SessionItem, IDEParentItem, LoadMoreItem } from './ui/SessionHandoffProvider';
+import { CapturedSession } from './core/extractors/types';
 import { McpConfigPanel } from './ui/McpConfigPanel';
 import { I18n } from './i18n';
 
@@ -559,7 +560,13 @@ export async function activate(context: vscode.ExtensionContext) {
             let uri = sessionPreviewKeyToUri.get(sessionKey);
             if (!uri) {
                 // Use a stable untitled URI so repeated clicks do not create duplicate documents.
-                uri = vscode.Uri.parse(`untitled:Edo-Tensei-${shortId}.md`);
+                const workspaceFolder = getExportWorkspaceFolder();
+                if (workspaceFolder) {
+                    const defaultPath = path.join(workspaceFolder.uri.fsPath, `Edo-Tensei-${shortId}.md`);
+                    uri = vscode.Uri.file(defaultPath).with({ scheme: 'untitled' });
+                } else {
+                    uri = vscode.Uri.parse(`untitled:Edo-Tensei-${shortId}.md`);
+                }
                 sessionPreviewKeyToUri.set(sessionKey, uri);
             }
 
@@ -662,6 +669,55 @@ export async function activate(context: vscode.ExtensionContext) {
                     }
                 }
             }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('edoTensei.searchSessions', async () => {
+            const allSessions = sessionService.getSessions();
+
+            if (allSessions.length === 0) {
+                vscode.window.showInformationMessage(I18n.getMessage('search.noSessions'));
+                return;
+            }
+
+            type SessionQuickPickItem = vscode.QuickPickItem & { session: CapturedSession };
+
+            const toItem = (session: CapturedSession): SessionQuickPickItem => {
+                const label = session.title
+                    || SessionHandoffProvider.extractMeaningfulTitle(session.messages)
+                    || I18n.getMessage('session.untitled');
+                const project = session.workspacePath ? path.basename(session.workspacePath) : undefined;
+                const date = new Date(session.capturedAt).toLocaleString([], {
+                    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                });
+                const description = [session.sourceIde, project, date].filter(Boolean).join(' • ');
+                return { label, description, session };
+            };
+
+            const quickPick = vscode.window.createQuickPick<SessionQuickPickItem>();
+            quickPick.placeholder = I18n.getMessage('search.placeholder');
+            quickPick.matchOnDescription = true;
+            quickPick.items = allSessions.slice(0, 30).map(toItem);
+
+            quickPick.onDidChangeValue(value => {
+                if (!value.trim()) {
+                    quickPick.items = allSessions.slice(0, 30).map(toItem);
+                    return;
+                }
+                const matches = sessionService.searchSessions({ query: value, includeMessages: false, limit: 30 });
+                quickPick.items = matches.map(m => toItem(m.session));
+            });
+
+            quickPick.onDidAccept(() => {
+                const selected = quickPick.selectedItems[0];
+                if (selected) {
+                    quickPick.hide();
+                    vscode.commands.executeCommand('edoTensei.viewParsedSession', new SessionItem(selected.session));
+                }
+            });
+
+            quickPick.show();
         })
     );
 

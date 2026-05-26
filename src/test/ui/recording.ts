@@ -105,6 +105,7 @@ export class UiRecording {
         banner.style.font = '600 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
         banner.style.boxShadow = '0 8px 28px rgba(0, 0, 0, 0.22)';
         banner.style.border = '1px solid rgba(0, 0, 0, 0.12)';
+        banner.style.pointerEvents = 'none';
         document.body.appendChild(banner);
       }
       banner.textContent = arguments[0];

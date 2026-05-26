@@ -27,6 +27,7 @@
     "config.lazyLoadMessages.description": "Enable lazy loading: only scan the first message during Scan; full content loads on hover/preview. Disable to restore eager loading for debugging comparison.",
     "config.mcpConfig.enabled.description": "Enable MCP Config UI (beta). When disabled, the MCP button is hidden and the command is disabled.",
     "command.refreshIde.title": "Refresh This IDE",
+    "command.searchSessions.title": "Search Sessions",
     "command.loadMoreSessions.title": "Load More Sessions",
     "config.maxSessionsPerIde.description": "Maximum number of sessions to show per IDE. When exceeded, a 'Load more…' button appears. Increase this if you want to see more sessions at once (may slow down scanning)."
 }

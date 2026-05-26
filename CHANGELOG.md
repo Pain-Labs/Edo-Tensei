@@ -2,6 +2,23 @@
 
 All notable changes to the "Edo Tensei" extension will be documented in this file.
 
+## [1.4.0] - Session Search & Save Fix - 2026-05-27
+
+### 🔍 Session Keyword Search (closes #34)
+
+- Added **Search Sessions** button (`$(search)`) to the sidebar toolbar
+- Opens a QuickPick that filters sessions live by title, workspace path, or IDE as you type
+- Powered by the existing `SessionSearchEngine`; searches title + workspace by default (message-content search available via MCP)
+- Shows up to 30 results ranked by relevance; selecting a result opens the parsed session view
+
+### 🐛 Bug Fix
+
+- **Untitled document EPERM on save**: `viewParsedSession` now anchors the untitled preview document to the workspace folder path, so the save dialog defaults to a writable location instead of triggering an EPERM error when VS Code attempted to write to a system path
+
+### 📄 Documentation
+
+- Added `npx skills add Pain-Labs/Edo-Tensei` install instruction to README Agent Skills section
+
 ## [1.3.0] - Agent Skill & Session Docs - 2026-05-24
 
 ### 🧠 Agent Skill (npx skills add)

@@ -1,8 +1,4 @@
-# Find GitHub Copilot Chat Session
-
-## Purpose
-
-Locate the most recent GitHub Copilot Chat session file so another AI agent can resume the task context.
+# GitHub Copilot Chat Session
 
 ## Storage Paths
 
@@ -23,10 +19,7 @@ Files are `.json` (older) or `.jsonl` (newer).
 # Linux/macOS — global sessions, newest first
 ls -lt ~/.config/Code/User/globalStorage/emptyWindowChatSessions/ 2>/dev/null | head -10
 
-# VS Code Server (SSH remote) — global sessions
-ls -lt ~/.vscode-server/data/User/globalStorage/emptyWindowChatSessions/ 2>/dev/null | head -10
-
-# Find per-workspace sessions (search workspace.json for current directory)
+# Find per-workspace sessions
 CURRENT_DIR=$(pwd)
 for wsdir in ~/.config/Code/User/workspaceStorage/*/; do
   if grep -q "$CURRENT_DIR" "$wsdir/workspace.json" 2>/dev/null; then
@@ -34,18 +27,23 @@ for wsdir in ~/.config/Code/User/workspaceStorage/*/; do
     ls -lt "$wsdir/chatSessions/" 2>/dev/null | head -5
   fi
 done
+```
 
-# Windows (PowerShell)
+```powershell
+# Windows
 Get-ChildItem "$env:APPDATA\Code\User\globalStorage\emptyWindowChatSessions\" |
   Sort-Object LastWriteTime -Descending | Select-Object -First 10
 ```
 
 ## How to Read
 
-### JSON format (older)
+### JSON format (older .json files)
+
+Root has `requests[]`. Each request has a user message and assistant response:
 
 ```json
 {
+  "sessionId": "...",
   "requests": [
     {
       "message": { "text": "<user message>" },
@@ -55,30 +53,40 @@ Get-ChildItem "$env:APPDATA\Code\User\globalStorage\emptyWindowChatSessions\" |
 }
 ```
 
-### JSONL format (newer)
+Extract: `requests[].message.text` (user) and `requests[].response[].value` (assistant, filter out parts with `kind` set).
 
-Each line: `{ "kind": <number>, "v": { "requests": [...] } }`
+### JSONL format (newer .jsonl files) — TWO sub-formats
 
-```bash
-# Show the last session's requests summary
-tail -c 50000 <path-to-session.json> | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-for r in data.get('requests', [])[-5:]:
-    print('USER:', r.get('message', {}).get('text', '')[:200])
-    for resp in r.get('response', []):
-        if resp.get('value'):
-            print('ASST:', resp['value'][:200])
-    print()
-"
+**Old JSONL format**: `kind=0` lines contain full session snapshots. Take the last one per sessionId.
+
+```jsonc
+// Each line:
+{ "kind": 0, "v": { "sessionId": "...", "customTitle": "...", "requests": [ ...full array... ] } }
 ```
+
+**New JSONL format** (since ~2025): `kind=0` line has an **empty** `requests` array. Real data is in `kind=2` lines.
+
+```jsonc
+// kind=0: session header (requests is EMPTY)
+{ "kind": 0, "v": { "sessionId": "...", "requests": [] } }
+
+// kind=2 k="requests": each line appends ONE request (cumulative, not replacing)
+{ "kind": 2, "k": "requests", "v": [ { "message": { "text": "..." }, "response": [] } ] }
+// or k as array:
+{ "kind": 2, "k": ["requests"], "v": [ ... ] }
+
+// kind=2 k=["requests", N, "response"]: patches the response for turn N
+{ "kind": 2, "k": ["requests", 0, "response"], "v": [ { "value": "..." } ] }
+```
+
+To reconstruct new format:
+1. Collect all `kind=2` lines where `k === "requests"` or `k === ["requests"]` → concatenate `v` arrays
+2. Collect all `kind=2` lines where `k === ["requests", N, "response"]` → apply as patches
+3. Parse the merged requests array like the old format
 
 ## Quick Handoff Command
 
 ```bash
 # Most recent global session (Linux)
 ls -t ~/.config/Code/User/globalStorage/emptyWindowChatSessions/*.{json,jsonl} 2>/dev/null | head -1
-
-# Most recent global session (SSH remote)
-ls -t ~/.vscode-server/data/User/globalStorage/emptyWindowChatSessions/*.{json,jsonl} 2>/dev/null | head -1
 ```

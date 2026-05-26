@@ -2,6 +2,28 @@
 
 All notable changes to the "Edo Tensei" extension will be documented in this file.
 
+## [1.3.0] - Agent Skill & Session Docs - 2026-05-24
+
+### 🧠 Agent Skill (npx skills add)
+
+- Added `skills/edo-tensei/SKILL.md` as SSOT for `npx skills add Pain-Labs/Edo-Tensei`
+- Skill-first architecture: works in any environment with file system access — no VS Code or MCP required
+- MCP tools listed as optional enhancement at the bottom of the skill
+
+### 📄 Session Documentation
+
+- Migrated `docs/skills/session-*.md` → `skills/edo-tensei/session-*.md` (downloadable via npx alongside SKILL.md)
+- Added `session-trae.md` documenting SQLite-based Trae storage (currently unsupported, fallback message provided)
+- Corrected Cursor path: `workspaceStorage/{hash}/agent-transcripts/` → `~/.cursor/projects/{slug}/agent-transcripts/`
+- Corrected Codex type names: `session_meta` + `response_item` (previously documented incorrectly as `message`/`user_message`)
+- Documented Kiro Format B (`workspace-sessions/{Base64URL(path)}/{uuid}.json` with `workspaceDirectory` field)
+- Documented Copilot new JSONL format (kind=0 empty header + kind=2 cumulative append mode for requests and responses)
+- Documented Antigravity `USER_EXPLICIT` source type and `<USER_REQUEST>` tag extraction
+
+### 🔧 Internal
+
+- Refactored `SkillGenerator.ts`: replaced 276-line hardcoded template with a direct read of `skills/edo-tensei/SKILL.md`; button-generated skill is now always in sync with the canonical SKILL.md and copies all `session-*.md` files alongside it
+
 ## [1.2.0] - Per-IDE Scanning, Pagination & UX Polish - 2026-05-20
 
 ### ⚡ Per-IDE On-Demand Scanning & Pagination

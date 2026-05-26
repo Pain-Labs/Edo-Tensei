@@ -1,3 +1,5 @@
+# skills/ is intentionally NOT excluded — bundled into the extension for the Generate Agent Skill feature
+
 # Source code (only bundle compiled dist/)
 src/**
 tsconfig.json

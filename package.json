@@ -2,7 +2,7 @@
   "name": "edo-tensei",
   "displayName": "Edo Tensei",
   "description": "%extension.description%",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "publisher": "Pain-Labs",
   "icon": "docs/assets/edo_tensei_logo_128.png",
   "license": "MIT",
@@ -208,6 +208,12 @@
         "enablement": "config.edoTensei.mcpConfig.enabled"
       },
       {
+        "command": "edoTensei.searchSessions",
+        "title": "%command.searchSessions.title%",
+        "category": "Edo Tensei",
+        "icon": "$(search)"
+      },
+      {
         "command": "edoTensei.refreshIde",
         "title": "%command.refreshIde.title%",
         "category": "Edo Tensei",
@@ -225,6 +231,11 @@
           "command": "edoTensei.scanAllIdes",
           "when": "view == sessionHandoffView",
           "group": "navigation@1"
+        },
+        {
+          "command": "edoTensei.searchSessions",
+          "when": "view == sessionHandoffView",
+          "group": "navigation@2"
         },
         {
           "command": "edoTensei.openSettings",

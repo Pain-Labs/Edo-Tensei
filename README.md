@@ -141,6 +141,12 @@ For detailed documentation, see the [MCP Server README](./mcp-server/README.md).
 
 ## Agent Skills
 
+Install the canonical `edo-tensei` skill directly:
+
+```bash
+npx skills add Pain-Labs/Edo-Tensei
+```
+
 Use **Generate Agent Skill** to create a reusable `edo-tensei` skill or rule for another AI tool. The generated asset is designed as a structured SOP instead of a loose note: it tells the receiving agent how to locate likely session files, read only the recent relevant portion, stop when confidence is low, and return a clean handoff summary.
 
 Supported outputs:

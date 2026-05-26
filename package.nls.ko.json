@@ -27,6 +27,7 @@
     "config.lazyLoadMessages.description": "지연 로딩 활성화: 스캔 시 첫 번째 메시지만 읽고, 마우스 오버·미리보기 시 전체 내용을 로드합니다. 끄면 디버깅 비교를 위한 즉시 로딩 모드로 돌아갑니다.",
     "config.mcpConfig.enabled.description": "Enable MCP Config UI (beta). When disabled, the MCP button is hidden and the command is disabled.",
     "command.refreshIde.title": "이 IDE만 다시 스캔",
+    "command.searchSessions.title": "세션 검색",
     "command.loadMoreSessions.title": "세션 더 불러오기",
     "config.maxSessionsPerIde.description": "IDE별 최대 세션 표시 수입니다. 초과 시 '더 불러오기' 버튼이 표시됩니다. 한 번에 더 많은 세션을 보려면 값을 늘리세요(스캔이 느려질 수 있습니다)."
 }

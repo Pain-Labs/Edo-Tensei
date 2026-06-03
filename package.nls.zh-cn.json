@@ -25,9 +25,11 @@
     "command.generateAgentSkill.title": "生成 Agent Skill",
     "command.showMcpConfig.title": "显示 MCP 配置",
     "config.lazyLoadMessages.description": "启用懒加载：扫描时只读取第一条消息，鼠标悬停或预览时才加载完整内容。关闭可还原即时加载模式，便于调试对比。",
+    "config.backgroundMessageLoading.description": "扫描完成后，在后台静默逐一加载完整消息内容（并发数：1，每条间隔 50ms）。可提升全文搜索覆盖率，但会增加额外磁盘 I/O。慢速磁盘或低端设备建议关闭。",
     "config.mcpConfig.enabled.description": "启用 MCP 配置 UI（Beta）。关闭时将隐藏 MCP 按钮并停用指令。",
     "command.refreshIde.title": "只重新扫描此 IDE",
     "command.searchSessions.title": "搜索 Sessions",
+    "command.searchIde.title": "搜索此 IDE 的 Sessions",
     "command.loadMoreSessions.title": "加载更多 Sessions",
     "config.maxSessionsPerIde.description": "每个 IDE 最多显示的 session 数量。超出时会显示"加载更多"按钮。若想一次看到更多 session 可提高此值（可能会使扫描变慢）。"
 }

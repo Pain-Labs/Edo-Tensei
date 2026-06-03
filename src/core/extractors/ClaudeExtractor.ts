@@ -29,6 +29,7 @@ type ClaudeJsonlRecord = {
 
 export class ClaudeExtractor implements IChatExtractor {
   readonly ideId = 'claude' as const;
+  readonly supportsPagedExtraction = true;
 
   private getScanPaths(): string[] {
     const defaultPath = path.join(os.homedir(), '.claude', 'projects');
@@ -68,72 +69,94 @@ export class ClaudeExtractor implements IChatExtractor {
         };
   }
 
-  async extractAll(workspacePath?: string): Promise<CapturedSession[]> {
+  async extractAll(
+    workspacePath?: string,
+    customScanPaths: string[] = [],
+    options?: { limit?: number; offset?: number }
+  ): Promise<CapturedSession[]> {
+    const offset = Math.max(0, options?.offset ?? 0);
+    const limit = options?.limit;
     const lazy = this.isLazyEnabled();
-    const scanPaths = this.getScanPaths();
-    const results: CapturedSession[] = [];
+
+    // Merge default scan paths with any caller-supplied ones.
+    const scanPaths = [...new Set([...this.getScanPaths(), ...customScanPaths])];
+
+    // Phase 1: stat-only pass — collect all candidates without reading content.
+    type Candidate = {
+      filePath: string; projectSlug: string; sessionId: string; mtimeMs: number; size: number;
+    };
+    const candidates: Candidate[] = [];
 
     for (const projectsDir of scanPaths) {
-      try {
-        await fs.access(projectsDir);
-      } catch {
-        continue;
-      }
+      try { await fs.access(projectsDir); } catch { continue; }
 
       const projectDirs = await this.safeReadDir(projectsDir);
-      for (const projectSlug of projectDirs) {
+      await Promise.all(projectDirs.map(async projectSlug => {
         const projectPath = path.join(projectsDir, projectSlug);
         const st = await this.safeStat(projectPath);
-        if (!st?.isDirectory()) continue;
-
-        if (workspacePath && !this.isSlugMatchWorkspace(projectSlug, workspacePath)) {
-          continue;
-        }
+        if (!st?.isDirectory()) return;
+        if (workspacePath && !this.isSlugMatchWorkspace(projectSlug, workspacePath)) return;
 
         const entries = await this.safeReadDir(projectPath);
-        for (const entry of entries) {
-          if (!entry.endsWith('.jsonl')) continue;
-
+        await Promise.all(entries.map(async entry => {
+          if (!entry.endsWith('.jsonl')) return;
           const filePath = path.join(projectPath, entry);
           const fileStat = await this.safeStat(filePath);
-          if (!fileStat) continue;
-          if (fileStat.size < 200) continue;
-
-          if (lazy) {
-            const { message: firstMsg, cwd } = await this.prescanFirstUserMessage(filePath);
-            // If no user message found in first 16KB, still include session as Untitled
-            const messages: ChatMessage[] = firstMsg ? [firstMsg] : [];
-            results.push({
-              sourceIde: this.ideId,
-              capturedAt: new Date(fileStat.mtimeMs).toISOString(),
-              sessionId: path.basename(entry, '.jsonl'),
-              workspacePath: cwd || this.slugToWorkspacePath(projectSlug),
-              messages,
-              messagesLoaded: false,
-              rawPath: filePath,
-              readStatus: 'success',
-            });
-          } else {
-            const raw = await this.safeReadFile(filePath);
-            if (!raw) continue;
-            const { messages, cwd } = this.parseClaudeJsonlWithMeta(raw);
-            if (messages.length === 0) continue;
-            results.push({
-              sourceIde: this.ideId,
-              capturedAt: new Date(fileStat.mtimeMs).toISOString(),
-              sessionId: path.basename(entry, '.jsonl'),
-              workspacePath: cwd || this.slugToWorkspacePath(projectSlug),
-              messages,
-              messagesLoaded: true,
-              rawPath: filePath,
-              readStatus: 'success',
-            });
-          }
-        }
-      }
+          if (!fileStat || fileStat.size < 200) return;
+          candidates.push({
+            filePath,
+            projectSlug,
+            sessionId: path.basename(entry, '.jsonl'),
+            mtimeMs: fileStat.mtimeMs,
+            size: fileStat.size,
+          });
+        }));
+      }));
     }
 
-    return results.sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
+    // Sort by mtime DESC, then apply pagination.
+    candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    const selected = limit !== undefined
+      ? candidates.slice(offset, offset + limit)
+      : candidates.slice(offset);
+
+    // Phase 2: prescan only the selected sessions.
+    const results = await Promise.all(
+      selected.map(async ({ filePath, projectSlug, sessionId, mtimeMs, size }) => {
+        if (lazy) {
+          const { message: firstMsg, cwd } = await this.prescanFirstUserMessage(filePath);
+          const messages: ChatMessage[] = firstMsg ? [firstMsg] : [];
+          return {
+            sourceIde: this.ideId,
+            capturedAt: new Date(mtimeMs).toISOString(),
+            sessionId,
+            workspacePath: cwd || this.slugToWorkspacePath(projectSlug),
+            messages,
+            messagesLoaded: false,
+            fileSizeBytes: size,
+            rawPath: filePath,
+            readStatus: 'success' as const,
+          };
+        } else {
+          const raw = await this.safeReadFile(filePath);
+          if (!raw) return null;
+          const { messages, cwd } = this.parseClaudeJsonlWithMeta(raw);
+          if (messages.length === 0) return null;
+          return {
+            sourceIde: this.ideId,
+            capturedAt: new Date(mtimeMs).toISOString(),
+            sessionId,
+            workspacePath: cwd || this.slugToWorkspacePath(projectSlug),
+            messages,
+            messagesLoaded: true,
+            fileSizeBytes: size,
+            rawPath: filePath,
+            readStatus: 'success' as const,
+          };
+        }
+      })
+    );
+    return results.filter(Boolean) as CapturedSession[];
   }
 
   /**

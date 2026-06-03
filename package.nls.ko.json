@@ -25,9 +25,11 @@
     "command.generateAgentSkill.title": "Agent Skill 생성",
     "command.showMcpConfig.title": "MCP 설정 표시",
     "config.lazyLoadMessages.description": "지연 로딩 활성화: 스캔 시 첫 번째 메시지만 읽고, 마우스 오버·미리보기 시 전체 내용을 로드합니다. 끄면 디버깅 비교를 위한 즉시 로딩 모드로 돌아갑니다.",
+    "config.backgroundMessageLoading.description": "스캔 완료 후 백그라운드에서 전체 메시지 내용을 자동 로드합니다 (동시 실행 수: 1, 세션 간격 50ms). 전문 검색 범위가 향상되지만 추가 디스크 I/O가 발생합니다. 느린 디스크나 저사양 기기에서는 비활성화를 권장합니다.",
     "config.mcpConfig.enabled.description": "Enable MCP Config UI (beta). When disabled, the MCP button is hidden and the command is disabled.",
     "command.refreshIde.title": "이 IDE만 다시 스캔",
     "command.searchSessions.title": "세션 검색",
+    "command.searchIde.title": "이 IDE의 세션 검색",
     "command.loadMoreSessions.title": "세션 더 불러오기",
     "config.maxSessionsPerIde.description": "IDE별 최대 세션 표시 수입니다. 초과 시 '더 불러오기' 버튼이 표시됩니다. 한 번에 더 많은 세션을 보려면 값을 늘리세요(스캔이 느려질 수 있습니다)."
 }

@@ -2,7 +2,7 @@
 
 All notable changes to the "Edo Tensei" extension will be documented in this file.
 
-## [1.4.0] - Session Search & Save Fix - 2026-05-27
+## [1.5.0] - Session Search & Save Fix - 2026-06-03
 
 ### 🔍 Session Keyword Search (closes #34)
 

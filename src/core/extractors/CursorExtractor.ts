@@ -34,6 +34,7 @@ interface CursorJsonlLine {
 
 export class CursorExtractor implements IChatExtractor {
   readonly ideId = 'cursor' as const;
+  readonly supportsPagedExtraction = true;
 
   private getProjectsDir(): string {
     return path.join(os.homedir(), '.cursor', 'projects');
@@ -103,31 +104,94 @@ export class CursorExtractor implements IChatExtractor {
       : { sourceIde: this.ideId, capturedAt: new Date().toISOString(), messages: [], rawPath: targetProjectDir, readStatus: 'empty' };
   }
 
-  async extractAll(_workspacePath?: string, customScanPaths: string[] = []): Promise<CapturedSession[]> {
+  async extractAll(
+    _workspacePath?: string,
+    customScanPaths: string[] = [],
+    options?: { limit?: number; offset?: number }
+  ): Promise<CapturedSession[]> {
+    const offset = Math.max(0, options?.offset ?? 0);
+    const limit = options?.limit;
+
     const defaultDir = this.getProjectsDir();
     const dirsToScan = [...customScanPaths, defaultDir];
-    const allSessions: CapturedSession[] = [];
+
+    // Phase 1: stat-only pass across all projects — no content reading yet.
+    type Candidate = { jsonlPath: string; projectDir: string; uuidDir: string; mtimeMs: number; size: number };
+    const candidates: Candidate[] = [];
 
     for (const projectsDir of dirsToScan) {
       try {
         await fs.access(projectsDir);
-        const allProjects = await this.listAllProjects(projectsDir);
-
-        // Process all projects in parallel
-        const projectResults = await Promise.all(
-          allProjects.map(project => this.extractFromProject(project.path))
-        );
-
-        for (const sessions of projectResults) {
-          allSessions.push(...sessions);
-        }
       } catch {
         continue;
       }
+      const allProjects = await this.listAllProjects(projectsDir);
+      const batches = await Promise.all(
+        allProjects.map(async project => {
+          const transcriptsDir = path.join(project.path, 'agent-transcripts');
+          try {
+            const uuidDirs = await fs.readdir(transcriptsDir);
+            const stats = await Promise.all(
+              uuidDirs.map(async uuidDir => {
+                const jsonlPath = path.join(transcriptsDir, uuidDir, `${uuidDir}.jsonl`);
+                try {
+                  const s = await fs.stat(jsonlPath);
+                  if (s.size < 100) return null;
+                  return { jsonlPath, projectDir: project.path, uuidDir, mtimeMs: s.mtimeMs, size: s.size };
+                } catch { return null; }
+              })
+            );
+            return stats.filter((r): r is Candidate => r !== null);
+          } catch { return []; }
+        })
+      );
+      for (const batch of batches) candidates.push(...batch);
     }
 
-    // Sort all sessions by mtime DESC
-    return allSessions.sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime());
+    // Sort by mtime DESC, then apply pagination.
+    candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    const selected = limit !== undefined
+      ? candidates.slice(offset, offset + limit)
+      : candidates.slice(offset);
+
+    // Phase 2: prescan only the selected sessions.
+    const lazy = this.isLazyEnabled();
+    const results = await Promise.all(
+      selected.map(async ({ jsonlPath, projectDir, uuidDir, mtimeMs, size }) => {
+        try {
+          if (lazy) {
+            const firstMsg = await this.prescanFirstUserMessage(jsonlPath);
+            return {
+              sourceIde: this.ideId,
+              capturedAt: new Date(mtimeMs).toISOString(),
+              sessionId: uuidDir,
+              workspacePath: projectDir,
+              messages: firstMsg ? [firstMsg] : [],
+              messagesLoaded: false,
+              fileSizeBytes: size,
+              metadata: { lazyScanned: true },
+              rawPath: jsonlPath,
+              readStatus: 'success' as const,
+            };
+          } else {
+            const messages = await this.parseJsonlFull(jsonlPath);
+            if (messages.length === 0) return null;
+            return {
+              sourceIde: this.ideId,
+              capturedAt: new Date(mtimeMs).toISOString(),
+              sessionId: uuidDir,
+              workspacePath: projectDir,
+              messages,
+              messagesLoaded: true,
+              fileSizeBytes: size,
+              rawPath: jsonlPath,
+              readStatus: 'success' as const,
+            };
+          }
+        } catch { return null; }
+      })
+    );
+    return results.filter(Boolean) as CapturedSession[];
   }
 
   async loadFullMessages(session: CapturedSession): Promise<void> {

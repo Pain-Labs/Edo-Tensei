@@ -25,9 +25,11 @@
     "command.generateAgentSkill.title": "Generate Agent Skill",
     "command.showMcpConfig.title": "Show MCP Config",
     "config.lazyLoadMessages.description": "Enable lazy loading: only scan the first message during Scan; full content loads on hover/preview. Disable to restore eager loading for debugging comparison.",
+    "config.backgroundMessageLoading.description": "After scanning, silently load full message content in the background (concurrency: 1, 50 ms pause between sessions). Improves full-text search coverage at the cost of extra disk I/O. Disable on slow disks or low-end machines.",
     "config.mcpConfig.enabled.description": "Enable MCP Config UI (beta). When disabled, the MCP button is hidden and the command is disabled.",
     "command.refreshIde.title": "Refresh This IDE",
     "command.searchSessions.title": "Search Sessions",
+    "command.searchIde.title": "Search Sessions in This IDE",
     "command.loadMoreSessions.title": "Load More Sessions",
     "config.maxSessionsPerIde.description": "Maximum number of sessions to show per IDE. When exceeded, a 'Load more…' button appears. Increase this if you want to see more sessions at once (may slow down scanning)."
 }

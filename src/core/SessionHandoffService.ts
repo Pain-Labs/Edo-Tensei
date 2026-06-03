@@ -23,6 +23,8 @@ export class SessionHandoffService {
     private ideScanStatus = new Map<CapturedSession['sourceIde'], { state: 'idle' | 'scanning' | 'done' | 'error'; found: number }>();
     private _onDidUpdateSessions = new vscode.EventEmitter<void>();
     public readonly onDidUpdateSessions = this._onDidUpdateSessions.event;
+    // Generation counter per IDE: incremented on each new scan to cancel stale background loads.
+    private bgLoadGen = new Map<CapturedSession['sourceIde'], number>();
 
     constructor(private readonly context: vscode.ExtensionContext) {
         this.extractors = [
@@ -70,6 +72,10 @@ export class SessionHandoffService {
         return this.scannedIdes.has(ideId);
     }
 
+    public isScanningIde(ideId: CapturedSession['sourceIde']): boolean {
+        return this.scanningIdes.has(ideId);
+    }
+
     private getSessionCap(): number {
         try {
             return vscode.workspace.getConfiguration('edoTensei').get<number>('maxSessionsPerIde', 300);
@@ -107,7 +113,7 @@ export class SessionHandoffService {
             this.sessions.set(ideId, [...current, ...visible]);
             this.hasMoreSessions.set(ideId, page.length > cap);
             this.updateIdeScanStatus(ideId, { state: 'done', found: current.length + visible.length });
-            void this.hydrateSessionSummaries(ideId, visible);
+            this.startBackgroundWork(ideId, visible);
         } catch (err) {
             console.error(`[SessionHandoffService] Error loading more ${ideId} sessions:`, err);
         } finally {
@@ -145,7 +151,7 @@ export class SessionHandoffService {
             this.scannedIdes.add(ideId);
             this.updateIdeScanStatus(ideId, { state: 'done', found: visible.length });
             this._onDidUpdateSessions.fire();
-            void this.hydrateSessionSummaries(ideId, visible);
+            this.startBackgroundWork(ideId, visible);
             return visible;
         } catch (err) {
             this.updateIdeScanStatus(ideId, { state: 'error' });
@@ -154,6 +160,69 @@ export class SessionHandoffService {
             return this.sessions.get(ideId) ?? [];
         } finally {
             this.scanningIdes.delete(ideId);
+            this._onDidUpdateSessions.fire();
+        }
+    }
+
+    private isBackgroundLoadEnabled(): boolean {
+        try {
+            return vscode.workspace.getConfiguration('edoTensei').get<boolean>('backgroundMessageLoading', true);
+        } catch { return true; }
+    }
+
+    private startBackgroundWork(ideId: CapturedSession['sourceIde'], sessions: CapturedSession[]): void {
+        const gen = (this.bgLoadGen.get(ideId) ?? 0) + 1;
+        this.bgLoadGen.set(ideId, gen);
+        void (async () => {
+            await this.hydrateSessionSummaries(ideId, sessions);
+            await this.backgroundLoadMessages(ideId, sessions, gen);
+        })();
+    }
+
+    private async backgroundLoadMessages(
+        ideId: CapturedSession['sourceIde'],
+        sessions: CapturedSession[],
+        gen: number
+    ): Promise<void> {
+        if (!this.isBackgroundLoadEnabled()) return;
+        const extractor = this.extractors.find(e => e.ideId === ideId);
+        if (!extractor?.loadFullMessages) return;
+
+        // Process smallest files first so most sessions become searchable quickly.
+        // Files over 10 MB are skipped entirely — background-loading a 127 MB
+        // Copilot transcript would block I/O for too long; prescan coverage suffices.
+        const BG_LOAD_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+        const bySize = [...sessions]
+            .filter(s => (s.fileSizeBytes ?? 0) <= BG_LOAD_MAX_BYTES)
+            .sort((a, b) => (a.fileSizeBytes ?? 0) - (b.fileSizeBytes ?? 0));
+
+        let changed = 0;
+        for (const session of bySize) {
+            // A newer scan started for this IDE — abandon this background load.
+            if (this.bgLoadGen.get(ideId) !== gen) return;
+
+            if (session.messagesLoaded) {
+                await new Promise<void>(resolve => setTimeout(resolve, 0));
+                continue;
+            }
+            try {
+                await extractor.loadFullMessages(session);
+                session.messagesLoaded = true;
+                changed++;
+            } catch {
+                // Non-fatal: session remains partially loaded.
+            }
+
+            // 50 ms pause between sessions keeps disk I/O light and leaves
+            // the extension-host event loop free for other callbacks.
+            await new Promise<void>(resolve => setTimeout(resolve, 50));
+
+            if (changed % 10 === 0 && changed > 0) {
+                this._onDidUpdateSessions.fire();
+            }
+        }
+
+        if (changed > 0) {
             this._onDidUpdateSessions.fire();
         }
     }

@@ -38,8 +38,9 @@ describe('SessionSearchEngine', () => {
 
     expect(results).toHaveLength(1)
     expect(results[0].session.sessionId).toBe('hit')
-    expect(results[0].matchedFields).toEqual(['messages'])
-    expect(results[0].snippets[0]).toContain('Please fix Codex extractor sanitization.')
+    // 'codex' appears in sourceIde and rawPath; 'extractor' appears in messages → cross-field AND
+    expect(results[0].matchedFields).toEqual(['sourceIde', 'rawPath', 'messages'])
+    expect(results[0].snippets.some(s => s.includes('Please fix Codex extractor sanitization.'))).toBe(true)
   })
 
   it('supports regex, invalid regex, IDE, workspace, time, and includeMessages filters', () => {
@@ -61,9 +62,10 @@ describe('SessionSearchEngine', () => {
       }),
     ]
 
-    expect(engine.search(sessions, { regex: 'security|copilot' }).map(match => match.session.sessionId)).toEqual(['copilot', 'codex'])
+    expect(engine.search(sessions, { regex: 'security|copilot' }).map(match => match.session.sessionId)).toEqual(['codex', 'copilot'])
     expect(engine.search(sessions, { regex: '[' })).toEqual([])
     expect(engine.search(sessions, { ide: 'copilot' }).map(match => match.session.sessionId)).toEqual(['copilot'])
+    expect(engine.search(sessions, { query: 'copilot' }).map(match => match.session.sessionId)).toContain('copilot')
     expect(engine.search(sessions, { workspacePath: 'C:\\Work' }).map(match => match.session.sessionId)).toEqual(['codex'])
     expect(engine.search(sessions, { time: '2026-05-16' }).map(match => match.session.sessionId)).toEqual(['codex', 'no-workspace'])
     expect(engine.search(sessions, { query: 'codex extractor', includeMessages: false })).toEqual([])
@@ -71,12 +73,35 @@ describe('SessionSearchEngine', () => {
 
   it('truncates long message snippets', () => {
     const engine = new SessionSearchEngine()
+    // Text is 267 chars total; makeTargetedSnippet uses a 350-char window so
+    // the full content fits and no truncation marker is appended.
     const longText = `needle ${'x'.repeat(260)}`
     const [result] = engine.search([session({ messages: [{ role: 'assistant', content: longText }] })], { query: 'needle' })
 
     expect(result.score).toBe(4)
-    expect(result.snippets[0]).toHaveLength(220)
-    expect(result.snippets[0].endsWith('...')).toBe(true)
+    expect(result.snippets[0].length).toBeLessThanOrEqual(352) // 350 window + optional leading/trailing …
+    expect(result.snippets[0]).toContain('needle')
+
+    // Verify that a text longer than the 350-char window IS truncated with …
+    const veryLongText = `needle ${'x'.repeat(400)}`
+    const [result2] = engine.search([session({ messages: [{ role: 'assistant', content: veryLongText }] })], { query: 'needle' })
+    expect(result2.snippets[0].endsWith('…')).toBe(true)
+  })
+
+  it('centers message snippet around the first hit position rather than the start', () => {
+    const engine = new SessionSearchEngine()
+    // Put the search term 200 chars into the content — snippet must start mid-text
+    // (with a leading "…") rather than from position 0.
+    const prefix = 'a'.repeat(200)
+    const content = `${prefix} needle rest-of-content`
+    const [result] = engine.search(
+      [session({ messages: [{ role: 'user', content }] })],
+      { query: 'needle' }
+    )
+
+    expect(result.snippets[0]).toContain('needle')
+    expect(result.snippets[0].startsWith('…')).toBe(true) // prefix was trimmed
+    expect(result.snippets[0]).not.toContain('a'.repeat(100)) // start of 200-char prefix not included
   })
 
   it('keeps a single messages field and caps message snippets after metadata snippets', () => {

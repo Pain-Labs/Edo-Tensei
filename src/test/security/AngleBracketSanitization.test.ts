@@ -52,6 +52,19 @@ afterEach(() => {
 })
 
 describe('angle bracket sanitization', () => {
+  it('strips Cursor <user_query> wrapper and returns the inner first line as title', () => {
+    const title = SessionHandoffProvider.extractMeaningfulTitle([
+      {
+        role: 'user',
+        content: '<user_query>\n以下任務做到一半額度沒了，換來這邊做\n\n---\n\nlab/0302_error_learning/',
+      },
+    ])
+
+    // Without stripping the wrapper, extractMeaningfulTitle would return "user_query"
+    // because <user_query> becomes "user_query" after < > removal.
+    expect(title).toBe('以下任務做到一半額度沒了，換來這邊做')
+  })
+
   it('does not reconstruct angle-bracket tags while extracting tree titles', () => {
     const title = SessionHandoffProvider.extractMeaningfulTitle([
       {

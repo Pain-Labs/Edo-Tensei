@@ -221,6 +221,8 @@ export class SessionHandoffProvider implements vscode.TreeDataProvider<vscode.Tr
                 .replace(/\s*<EnvironmentContext>[\s\S]*?<\/EnvironmentContext>\s*$/i, '')
                 .replace(/\s*<OPEN-EDITOR-FILES>[\s\S]*?<\/OPEN-EDITOR-FILES>\s*/gi, '')
                 .replace(/\s*<ACTIVE-EDITOR-FILE>[\s\S]*?<\/ACTIVE-EDITOR-FILE>\s*/gi, '')
+                .replace(/^<user_query>\s*/i, '')
+                .replace(/\s*<\/user_query>\s*$/i, '')
                 .trim();
         };
 

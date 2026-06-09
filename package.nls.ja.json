@@ -25,8 +25,11 @@
     "command.generateAgentSkill.title": "Agent Skill を生成",
     "command.showMcpConfig.title": "MCP 設定を表示",
     "config.lazyLoadMessages.description": "遅延読み込みを有効化：スキャン時は最初のメッセージのみ読み取り、ホバー・プレビュー時に全内容を読み込みます。オフにするとデバッグ対照用の即時読み込みモードに戻ります。",
+    "config.backgroundMessageLoading.description": "スキャン完了後、バックグラウンドで全メッセージ内容をサイレント読み込み（同時実行数：1、セッション間隔 50ms）。全文検索のカバレッジが向上しますが、追加のディスク I/O が発生します。低速ディスクや低スペック端末では無効化を推奨。",
     "config.mcpConfig.enabled.description": "Enable MCP Config UI (beta). When disabled, the MCP button is hidden and the command is disabled.",
     "command.refreshIde.title": "この IDE のみ再スキャン",
+    "command.searchSessions.title": "セッションを検索",
+    "command.searchIde.title": "この IDE のセッションを検索",
     "command.loadMoreSessions.title": "セッションをさらに読み込む",
     "config.maxSessionsPerIde.description": "IDE ごとに表示するセッションの最大数。超えた場合は「さらに読み込む」ボタンが表示されます。より多くのセッションを一度に表示したい場合は増やしてください（スキャンが遅くなる場合があります）。"
 }

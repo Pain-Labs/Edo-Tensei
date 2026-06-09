@@ -62,6 +62,23 @@ describe('ideParentItem inline buttons', () => {
   })
 })
 
+describe('ideParentItem context menu', () => {
+  const ideContext = viewItemContext.filter(
+    e => e.when?.includes('ideParentItem') && e.group?.startsWith('ide')
+  )
+
+  it('has searchIde in the ide context group', () => {
+    const entry = ideContext.find(e => e.command === 'edoTensei.searchIde')
+    expect(entry).toBeDefined()
+    expect(entry?.group).toBe('ide@2')
+  })
+
+  it('has refreshIde in the ide context group', () => {
+    const entry = ideContext.find(e => e.command === 'edoTensei.refreshIde' && e.group === 'ide@1')
+    expect(entry).toBeDefined()
+  })
+})
+
 // ── Session item inline buttons (sessionItem) ─────────────────────────────────
 
 describe('sessionItem inline buttons', () => {

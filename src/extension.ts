@@ -7,6 +7,7 @@ import { readFile } from 'fs/promises';
 import { SessionHandoffService } from './core/SessionHandoffService';
 import { SkillGenerator } from './core/SkillGenerator';
 import { SessionHandoffProvider, SessionItem, IDEParentItem, LoadMoreItem } from './ui/SessionHandoffProvider';
+import { CapturedSession } from './core/extractors/types';
 import { McpConfigPanel } from './ui/McpConfigPanel';
 import { I18n } from './i18n';
 
@@ -456,6 +457,108 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('edoTensei.searchIde', async (item: IDEParentItem) => {
+            if (!item?.ideId) { return; }
+
+            if (!sessionService.isIdeScanned(item.ideId)) {
+                await vscode.window.withProgress(
+                    { location: vscode.ProgressLocation.Window, title: I18n.getMessage('search.scanning') },
+                    () => {
+                        if (sessionService.isScanningIde(item.ideId)) {
+                            // Another click already started the scan — just wait for it to finish.
+                            return new Promise<void>(resolve => {
+                                const sub = sessionService.onDidUpdateSessions(() => {
+                                    if (sessionService.isIdeScanned(item.ideId)) {
+                                        sub.dispose();
+                                        resolve();
+                                    }
+                                });
+                            });
+                        }
+                        return sessionService.scanSingleIde(item.ideId).then(() => undefined);
+                    }
+                );
+            }
+
+            const ideSessions = sessionService.getSessions().filter(s => s.sourceIde === item.ideId);
+
+            if (ideSessions.length === 0) {
+                vscode.window.showInformationMessage(I18n.getMessage('search.noSessions'));
+                return;
+            }
+
+            type SessionQuickPickItem = vscode.QuickPickItem & { session: CapturedSession };
+
+            const toItem = (session: CapturedSession): SessionQuickPickItem => {
+                const label = session.title
+                    || SessionHandoffProvider.extractMeaningfulTitle(session.messages)
+                    || I18n.getMessage('session.untitled');
+                const project = session.workspacePath ? path.basename(session.workspacePath) : undefined;
+                const date = new Date(session.capturedAt).toLocaleString([], {
+                    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                });
+                const description = [project, date].filter(Boolean).join(' • ');
+                return { label, description, session };
+            };
+
+            const quickPick = vscode.window.createQuickPick<SessionQuickPickItem>();
+            quickPick.placeholder = I18n.getMessage('search.placeholder');
+            quickPick.matchOnDescription = true;
+            quickPick.matchOnDetail = true;
+            quickPick.items = ideSessions.slice(0, 30).map(toItem);
+
+            // VS Code's built-in QuickPick fuzzy filter still runs after we set items in
+            // onDidChangeValue. It matches label + description + detail in sequence order.
+            // To guarantee the searched terms appear in the correct (query) order in detail,
+            // we prepend the raw query value to the detail string.
+            const toSearchItem = (m: import('./core/SessionSearchEngine').SessionSearchMatch, queryValue: string): SessionQuickPickItem => {
+                const qItem = toItem(m.session);
+                // Prefer message-content snippets over field-path snippets
+                // (message snippets don't start with "field: " prefixes).
+                const FIELD_PREFIXES = ['title:', 'sourceIde:', 'workspacePath:', 'rawPath:'];
+                const best = m.snippets.find(s => !FIELD_PREFIXES.some(p => s.startsWith(p))) ?? m.snippets[0];
+                const snippet = best?.slice(0, 300) ?? '';
+                qItem.detail = snippet ? `${queryValue} — ${snippet}` : queryValue;
+                return qItem;
+            };
+
+            quickPick.onDidChangeValue(value => {
+                if (!value.trim()) {
+                    quickPick.items = ideSessions.slice(0, 30).map(toItem);
+                    return;
+                }
+                const matches = sessionService.searchSessions({ query: value, ide: item.ideId, includeMessages: true, limit: 30 });
+                quickPick.items = matches.map(m => toSearchItem(m, value));
+            });
+
+            quickPick.onDidAccept(() => {
+                const selected = quickPick.selectedItems[0];
+                if (selected) {
+                    quickPick.hide();
+                    vscode.commands.executeCommand('edoTensei.viewParsedSession', new SessionItem(selected.session));
+                }
+            });
+
+            // Re-run search whenever background loading adds new messages.
+            const updateSub = sessionService.onDidUpdateSessions(() => {
+                const value = quickPick.value;
+                if (!value.trim()) {
+                    quickPick.items = sessionService.getSessions()
+                        .filter(s => s.sourceIde === item.ideId)
+                        .slice(0, 30)
+                        .map(toItem);
+                } else {
+                    const matches = sessionService.searchSessions({ query: value, ide: item.ideId, includeMessages: true, limit: 30 });
+                    quickPick.items = matches.map(m => toSearchItem(m, value));
+                }
+            });
+            quickPick.onDidHide(() => updateSub.dispose());
+
+            quickPick.show();
+        })
+    );
+
+    context.subscriptions.push(
         vscode.commands.registerCommand('edoTensei.resurrectSession', async (item: SessionItem) => {
             if (!item?.session) {
                 vscode.window.showWarningMessage(I18n.getMessage('session.notSelected'));
@@ -559,7 +662,13 @@ export async function activate(context: vscode.ExtensionContext) {
             let uri = sessionPreviewKeyToUri.get(sessionKey);
             if (!uri) {
                 // Use a stable untitled URI so repeated clicks do not create duplicate documents.
-                uri = vscode.Uri.parse(`untitled:Edo-Tensei-${shortId}.md`);
+                const workspaceFolder = getExportWorkspaceFolder();
+                if (workspaceFolder) {
+                    const defaultPath = path.join(workspaceFolder.uri.fsPath, `Edo-Tensei-${shortId}.md`);
+                    uri = vscode.Uri.file(defaultPath).with({ scheme: 'untitled' });
+                } else {
+                    uri = vscode.Uri.parse(`untitled:Edo-Tensei-${shortId}.md`);
+                }
                 sessionPreviewKeyToUri.set(sessionKey, uri);
             }
 
@@ -662,6 +771,75 @@ export async function activate(context: vscode.ExtensionContext) {
                     }
                 }
             }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('edoTensei.searchSessions', async () => {
+            let allSessions = sessionService.getSessions();
+
+            if (allSessions.length === 0 && !sessionService.isScanning()) {
+                await vscode.window.withProgress(
+                    { location: vscode.ProgressLocation.Window, title: I18n.getMessage('search.scanning') },
+                    () => sessionService.scanAllIdes()
+                );
+                allSessions = sessionService.getSessions();
+            }
+
+            if (allSessions.length === 0) {
+                vscode.window.showInformationMessage(I18n.getMessage('search.noSessions'));
+                return;
+            }
+
+            type SessionQuickPickItem = vscode.QuickPickItem & { session: CapturedSession };
+
+            const toItem = (session: CapturedSession): SessionQuickPickItem => {
+                const label = session.title
+                    || SessionHandoffProvider.extractMeaningfulTitle(session.messages)
+                    || I18n.getMessage('session.untitled');
+                const project = session.workspacePath ? path.basename(session.workspacePath) : undefined;
+                const date = new Date(session.capturedAt).toLocaleString([], {
+                    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                });
+                const description = [session.sourceIde, project, date].filter(Boolean).join(' • ');
+                return { label, description, session };
+            };
+
+            const quickPick = vscode.window.createQuickPick<SessionQuickPickItem>();
+            quickPick.placeholder = I18n.getMessage('search.placeholder');
+            quickPick.matchOnDescription = true;
+            quickPick.matchOnDetail = true;
+            quickPick.items = allSessions.slice(0, 30).map(toItem);
+
+            const toSearchItem = (m: import('./core/SessionSearchEngine').SessionSearchMatch, queryValue: string): SessionQuickPickItem => {
+                const qItem = toItem(m.session);
+                // Prefer message-content snippets over field-path snippets
+                // (message snippets don't start with "field: " prefixes).
+                const FIELD_PREFIXES = ['title:', 'sourceIde:', 'workspacePath:', 'rawPath:'];
+                const best = m.snippets.find(s => !FIELD_PREFIXES.some(p => s.startsWith(p))) ?? m.snippets[0];
+                const snippet = best?.slice(0, 300) ?? '';
+                qItem.detail = snippet ? `${queryValue} — ${snippet}` : queryValue;
+                return qItem;
+            };
+
+            quickPick.onDidChangeValue(value => {
+                if (!value.trim()) {
+                    quickPick.items = allSessions.slice(0, 30).map(toItem);
+                    return;
+                }
+                const matches = sessionService.searchSessions({ query: value, includeMessages: true, limit: 30 });
+                quickPick.items = matches.map(m => toSearchItem(m, value));
+            });
+
+            quickPick.onDidAccept(() => {
+                const selected = quickPick.selectedItems[0];
+                if (selected) {
+                    quickPick.hide();
+                    vscode.commands.executeCommand('edoTensei.viewParsedSession', new SessionItem(selected.session));
+                }
+            });
+
+            quickPick.show();
         })
     );
 

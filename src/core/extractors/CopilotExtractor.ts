@@ -212,24 +212,48 @@ export class CopilotExtractor implements IChatExtractor {
     customScanPaths: string[] = [],
     maxCandidates?: number
   ): Promise<CopilotSessionFileCandidate[]> {
-    const candidates: CopilotSessionFileCandidate[] = [];
-    const addCandidates = (items: CopilotSessionFileCandidate[]) => {
-      candidates.push(...items);
-      return maxCandidates !== undefined && candidates.length >= maxCandidates;
-    };
-
+    // Phase 1: emptyWindowChatSessions — global sessions with no workspace association.
+    const globalCandidates: CopilotSessionFileCandidate[] = [];
     for (const dir of [...customScanPaths, ...this.getBaseDirs()]) {
-      if (addCandidates(await this.collectFilesFromDir(dir, undefined, maxCandidates))) {
-        return candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
-      }
+      const limit = maxCandidates === undefined ? undefined : Math.max(0, maxCandidates - globalCandidates.length);
+      if (maxCandidates !== undefined && limit === 0) break;
+      globalCandidates.push(...await this.collectFilesFromDir(dir, undefined, limit));
     }
 
+    // Phase 2: workspaceStorage — workspace-specific sessions with proper workspacePath.
+    // Always runs independently of Phase 1 so that workspace-associated sessions are never
+    // crowded out by the global cap.
+    const workspaceCandidates: CopilotSessionFileCandidate[] = [];
     for (const workspaceStorageDir of this.getWorkspaceStorageDirs()) {
       try {
         const rawEntries = await fs.readdir(workspaceStorageDir);
-        const entriesSorted = await this.listDirsByMtime(workspaceStorageDir, rawEntries);
 
-        for (const { name } of entriesSorted) {
+        // Pre-filter: stat each dir and check chatSessions existence in parallel batches.
+        // Batching at 50 keeps I/O concurrency reasonable while being far faster than
+        // the old approach of statting all dirs first then sequentially access-checking them.
+        const BATCH = 50;
+        const relevantDirs: Array<{ name: string; mtime: number }> = [];
+        for (let bi = 0; bi < rawEntries.length; bi += BATCH) {
+          const batch = rawEntries.slice(bi, bi + BATCH);
+          const batchResults = await Promise.all(
+            batch.map(async name => {
+              const entryDir = path.join(workspaceStorageDir, name);
+              try {
+                const [dirStat] = await Promise.all([
+                  fs.stat(entryDir),
+                  fs.access(path.join(entryDir, 'chatSessions')),
+                ]);
+                return { name, mtime: dirStat.mtimeMs };
+              } catch {
+                return null;
+              }
+            })
+          );
+          for (const r of batchResults) if (r) relevantDirs.push(r);
+        }
+        relevantDirs.sort((a, b) => b.mtime - a.mtime);
+
+        for (const { name } of relevantDirs) {
           const entryDir = path.join(workspaceStorageDir, name);
           let resolvedWsPath: string | undefined;
           let resolvedFolderPaths: string[] = [];
@@ -270,20 +294,23 @@ export class CopilotExtractor implements IChatExtractor {
             wsPathForSession = workspacePath ?? resolvedFolderPaths[0];
           }
 
-          candidates.push(...await this.collectFilesFromDir(
+          workspaceCandidates.push(...await this.collectFilesFromDir(
             path.join(entryDir, 'chatSessions'),
             wsPathForSession,
-            maxCandidates === undefined ? undefined : Math.max(0, maxCandidates - candidates.length)
+            maxCandidates === undefined ? undefined : Math.max(0, maxCandidates - workspaceCandidates.length)
           ));
 
-          if (maxCandidates !== undefined && candidates.length >= maxCandidates) {
-            return candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+          if (maxCandidates !== undefined && workspaceCandidates.length >= maxCandidates) {
+            break;
           }
         }
       } catch { /* skip */ }
     }
 
-    return candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    // Merge both sources, sort by recency, and apply the global cap.
+    const all = [...workspaceCandidates, ...globalCandidates];
+    all.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    return maxCandidates === undefined ? all : all.slice(0, maxCandidates);
   }
 
   private async collectFilesFromDir(

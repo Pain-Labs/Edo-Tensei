@@ -47,6 +47,9 @@
     "transcript.messages": "{0}  ·  {1} messages",
     "transcript.thought": "> 🤔 Thought process",
     "transcript.toolCalls": "> 🛠️ Tool calls: {0}",
+    "search.placeholder": "Search by title, path or message… (space = AND)",
+    "search.scanning": "Scanning sessions…",
+    "search.noSessions": "No sessions found across all IDEs.",
     "mcpConfig.beta.disabled": "MCP Config is a beta feature and is currently disabled. Enable it in Settings?",
     "mcpConfig.beta.enable": "Enable (Global)",
     "mcpConfig.beta.openSettings": "Open Settings"

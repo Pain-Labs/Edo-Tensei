@@ -47,6 +47,9 @@
     "transcript.messages": "{0}  ·  {1} 条消息",
     "transcript.thought": "> 🤔 思考过程",
     "transcript.toolCalls": "> 🛠️ 工具调用：{0} 次",
+    "search.placeholder": "搜索标题、路径或消息内容…（空格 = AND 多关键词）",
+    "search.scanning": "正在扫描 Sessions…",
+    "search.noSessions": "所有 IDE 均未找到任何 Session。",
     "mcpConfig.beta.disabled": "MCP 配置目前为 Beta 功能且默认关闭。要在设置中启用吗？",
     "mcpConfig.beta.enable": "启用（全局）",
     "mcpConfig.beta.openSettings": "打开设置"

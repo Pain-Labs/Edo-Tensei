@@ -38,6 +38,7 @@
     "export.openFile": "Open file",
     "export.failed": "Export failed: {0}",
     "skill.noWorkspace": "No workspace folder found. Open a project before generating an agent skill.",
+    "skill.pickWorkspace": "Select a workspace folder to generate the skill in",
     "skill.pickTarget": "Select which AI agent format to generate",
     "skill.generated": "✅ Skill generated: {0}",
     "skill.generatedMultiple": "✅ Generated {0} skill files: {1}",

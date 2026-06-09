@@ -17,12 +17,34 @@ export type SkillGenerationResult =
     | { status: 'no_workspace' };
 
 export class SkillGenerator {
-    public static getProjectRoot(): string | undefined {
+    public static async getProjectRoot(): Promise<string | undefined> {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders || workspaceFolders.length === 0) {
             return undefined;
         }
-        return workspaceFolders[0].uri.fsPath;
+        if (workspaceFolders.length === 1) {
+            return workspaceFolders[0].uri.fsPath;
+        }
+
+        const activeEditor = vscode.window.activeTextEditor;
+        if (activeEditor) {
+            const activeFolder = vscode.workspace.getWorkspaceFolder(activeEditor.document.uri);
+            if (activeFolder) {
+                return activeFolder.uri.fsPath;
+            }
+        }
+
+        const items = workspaceFolders.map(folder => ({
+            label: folder.name,
+            description: folder.uri.fsPath,
+            folder: folder
+        }));
+
+        const picked = await vscode.window.showQuickPick(items, {
+            placeHolder: I18n.getMessage('skill.pickWorkspace'),
+        });
+
+        return picked?.folder.uri.fsPath;
     }
 
     private static getSkillsSourceDir(): string {
@@ -48,10 +70,15 @@ export class SkillGenerator {
     }
 
     public static async generateSkill(): Promise<SkillGenerationResult> {
-        const projectRoot = this.getProjectRoot();
-        if (!projectRoot) {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders || workspaceFolders.length === 0) {
             vscode.window.showErrorMessage(I18n.getMessage('skill.noWorkspace'));
             return { status: 'no_workspace' };
+        }
+
+        const projectRoot = await this.getProjectRoot();
+        if (!projectRoot) {
+            return { status: 'cancelled', projectRoot: '' };
         }
 
         const options = [

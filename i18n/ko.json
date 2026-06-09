@@ -38,6 +38,7 @@
     "export.openFile": "파일 열기",
     "export.failed": "내보내기 실패: {0}",
     "skill.noWorkspace": "작업 영역 폴더를 찾을 수 없습니다. Agent Skill을 생성하기 전에 프로젝트를 먼저 여세요.",
+    "skill.pickWorkspace": "스킬을 생성할 워크스페이스 폴더를 선택하십시오",
     "skill.pickTarget": "생성할 AI agent 형식을 선택하세요",
     "skill.generated": "✅ Skill을 생성했습니다: {0}",
     "skill.generatedMultiple": "✅ {0}개의 Skill 파일을 생성했습니다: {1}",

@@ -38,6 +38,7 @@
     "export.openFile": "ファイルを開く",
     "export.failed": "エクスポート失敗: {0}",
     "skill.noWorkspace": "ワークスペース フォルダーが見つかりません。Agent Skill を生成する前にプロジェクトを開いてください。",
+    "skill.pickWorkspace": "Skillを生成するワークスペースフォルダーを選択してください",
     "skill.pickTarget": "生成する AI エージェント形式を選択してください",
     "skill.generated": "✅ Skill を生成しました：{0}",
     "skill.generatedMultiple": "✅ {0} 個の Skill ファイルを生成しました：{1}",

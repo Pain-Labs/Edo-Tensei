@@ -751,7 +751,7 @@ export async function activate(context: vscode.ExtensionContext) {
             const picked = await vscode.window.showInformationMessage(message, addToGitignoreLabel);
 
             if (picked === addToGitignoreLabel) {
-                const skillWorkspaceFolder = getExportWorkspaceFolder();
+                const skillWorkspaceFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(projectRoot));
                 if (skillWorkspaceFolder) {
                     const targetPath = await pickGitignoreTargetPath(skillWorkspaceFolder.uri.fsPath);
                     if (targetPath) {

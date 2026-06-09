@@ -38,6 +38,7 @@
     "export.openFile": "Open file",
     "export.failed": "导出失败：{0}",
     "skill.noWorkspace": "找不到工作区文件夹。请先打开项目，再生成 agent skill。",
+    "skill.pickWorkspace": "选择要生成 skill 的工作区文件夹",
     "skill.pickTarget": "选择要生成哪一种 AI agent 格式",
     "skill.generated": "✅ Skill 已生成：{0}",
     "skill.generatedMultiple": "✅ 已生成 {0} 个 skill 文件：{1}",

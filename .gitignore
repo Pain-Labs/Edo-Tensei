@@ -20,6 +20,7 @@ docs/research/**
 .cursor/rules/virtualtabs.mdc
 .cursor/rules/scripts/vt.bundle.js
 docs/assets/candidates/**
+docs/_archive/**
 .claude/settings.json
 docs/session-handoff/**
 docs/brand/**
@@ -39,3 +40,4 @@ test/fixtures/*
 !test/fixtures/copilot/
 !test/fixtures/copilot/**
 docs/ui-redesign-plan.md
+docs/landing-page-redesign-notes.md

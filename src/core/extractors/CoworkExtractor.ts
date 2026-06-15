@@ -6,6 +6,31 @@ import * as os from 'os';
 import * as vscode from 'vscode';
 import { CapturedSession, ChatMessage, IChatExtractor } from './types';
 
+/**
+ * Cowork's dispatch-parent audit.jsonl echoes every user message twice:
+ * once when received, once when re-injected into the orchestrator context.
+ * This deduplicator drops the second occurrence if content is identical
+ * and the timestamp is within 60 seconds of the first.
+ */
+class CoworkDeduplicator {
+  private seen = new Map<string, number>(); // contentHash -> epoch ms
+
+  accept(msg: ChatMessage): boolean {
+    const key = `${msg.role}:${msg.content}`;
+    const ts = msg.timestamp ? new Date(msg.timestamp).getTime() : 0;
+    const prev = this.seen.get(key);
+    if (prev !== undefined && ts - prev < 60_000) return false;
+    this.seen.set(key, ts || Date.now());
+    return true;
+  }
+}
+
+/**
+ * Patterns for user-role records that are actually Cowork system injections,
+ * not real human messages: tool completion callbacks, orchestrator reminders, etc.
+ */
+const SYSTEM_INJECTION_RE = /^(Task ".+?" completed\.|You ended the turn without calling|You've hit your session limit|You have \d+ task|SendUserMessage)/;
+
 type CoworkContentBlock =
   | { type: 'text'; text: string }
   | { type: 'thinking'; thinking: string }
@@ -244,7 +269,7 @@ export class CoworkExtractor implements IChatExtractor {
         let obj: CoworkRecord;
         try { obj = JSON.parse(trimmed) as CoworkRecord; } catch { continue; }
         const msg = this.recordToMessage(obj);
-        if (msg?.role === 'user') return msg;
+        if (msg?.role === 'user' && !SYSTEM_INJECTION_RE.test(msg.content)) return msg;
       }
     } catch {
       // ignore
@@ -258,13 +283,14 @@ export class CoworkExtractor implements IChatExtractor {
     try {
       const raw = await fs.readFile(auditPath, 'utf8');
       const messages: ChatMessage[] = [];
+      const dedup = new CoworkDeduplicator();
       for (const line of raw.split('\n')) {
         const trimmed = line.trim();
         if (!trimmed) continue;
         let obj: CoworkRecord;
         try { obj = JSON.parse(trimmed) as CoworkRecord; } catch { continue; }
         const msg = this.recordToMessage(obj);
-        if (msg) messages.push(msg);
+        if (msg && dedup.accept(msg)) messages.push(msg);
       }
       return messages;
     } catch {
@@ -275,6 +301,7 @@ export class CoworkExtractor implements IChatExtractor {
   private async parseAuditJsonlStreaming(auditPath: string, truncate: boolean): Promise<ChatMessage[]> {
     const MAX_CHARS = 50_000;
     const messages: ChatMessage[] = [];
+    const dedup = new CoworkDeduplicator();
     const stream = fsSync.createReadStream(auditPath, { encoding: 'utf8' });
     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
     for await (const line of rl) {
@@ -283,7 +310,7 @@ export class CoworkExtractor implements IChatExtractor {
       let obj: CoworkRecord;
       try { obj = JSON.parse(trimmed) as CoworkRecord; } catch { continue; }
       const msg = this.recordToMessage(obj, truncate ? MAX_CHARS : undefined);
-      if (msg) messages.push(msg);
+      if (msg && dedup.accept(msg)) messages.push(msg);
     }
     return messages;
   }
@@ -301,16 +328,19 @@ export class CoworkExtractor implements IChatExtractor {
     } else if (Array.isArray(content)) {
       const parts: string[] = [];
       for (const block of content) {
+        // Include only visible text blocks — skip thinking (internal reasoning)
         if (block.type === 'text' && typeof (block as { text?: string }).text === 'string') {
           parts.push(((block as { text: string }).text).trim());
-        } else if (block.type === 'thinking' && typeof (block as { thinking?: string }).thinking === 'string') {
-          parts.push(((block as { thinking: string }).thinking).trim());
         }
       }
       text = parts.join('\n').trim();
     }
 
     if (!text) return undefined;
+
+    // Filter out Cowork system-injected user messages (tool result re-injections)
+    if (role === 'user' && SYSTEM_INJECTION_RE.test(text)) return undefined;
+
     if (maxChars && text.length > maxChars) {
       text = text.slice(0, maxChars) + `\n...[truncated ${text.length - maxChars} chars]`;
     }

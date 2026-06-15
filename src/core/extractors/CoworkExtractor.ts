@@ -142,19 +142,30 @@ export class CoworkExtractor implements IChatExtractor {
           const convSt = await this.safeStat(convPath);
           if (!convSt?.isDirectory()) continue;
 
-          // Main transcript: agent/local_ditto_{conv-uuid}/audit.jsonl
-          const auditPath = path.join(convPath, 'agent', `local_ditto_${convUuid}`, 'audit.jsonl');
-          const auditSt = await this.safeStat(auditPath);
-          if (!auditSt || auditSt.size < 100) continue;
+          // Each local_{uuid}/ directory is one focused child session (single topic).
+          // The dispatch parent (agent/local_ditto_*/audit.jsonl) spans ALL child sessions
+          // and is intentionally skipped — it mixes every topic into one long transcript.
+          const entries = await this.safeReadDir(convPath);
+          for (const entry of entries) {
+            if (!entry.startsWith('local_') || entry.startsWith('local_ditto_')) continue;
+            const childDir = path.join(convPath, entry);
+            const childSt = await this.safeStat(childDir);
+            if (!childSt?.isDirectory()) continue;
 
-          const { title, lastActivityAt } = await this.readConvMetadata(convPath, convUuid);
+            const auditPath = path.join(childDir, 'audit.jsonl');
+            const auditSt = await this.safeStat(auditPath);
+            if (!auditSt || auditSt.size < 100) continue;
 
-          candidates.push({
-            auditPath,
-            lastActivityAt,
-            title,
-            sessionId: convUuid,
-          });
+            const metaPath = path.join(convPath, `${entry}.json`);
+            const meta = await this.readChildMeta(metaPath);
+
+            candidates.push({
+              auditPath,
+              lastActivityAt: meta.lastActivityAt ?? auditSt.mtimeMs,
+              title: meta.title || 'Cowork session',
+              sessionId: entry.replace(/^local_/, ''),
+            });
+          }
         }
       }
     }
@@ -198,50 +209,12 @@ export class CoworkExtractor implements IChatExtractor {
     return results.filter(Boolean) as CapturedSession[];
   }
 
-  /**
-   * Reads the most recent child session metadata to get title and lastActivityAt.
-   * Falls back to the dispatch-parent metadata if no child sessions found.
-   */
-  private async readConvMetadata(
-    convPath: string,
-    convUuid: string
-  ): Promise<{ title: string; lastActivityAt: number }> {
-    // Child metadata: local_{uuid}.json files (sessionType: 'dispatch_child')
-    const entries = await this.safeReadDir(convPath);
-    let bestChild: CoworkMetadata | null = null;
-    let bestTs = 0;
-
-    for (const entry of entries) {
-      if (!entry.startsWith('local_') || !entry.endsWith('.json')) continue;
-      if (entry.startsWith(`local_ditto_`)) continue;
-      try {
-        const raw = await fs.readFile(path.join(convPath, entry), 'utf8');
-        const meta = JSON.parse(raw) as CoworkMetadata;
-        const ts = meta.lastActivityAt ?? 0;
-        if (ts > bestTs) {
-          bestTs = ts;
-          bestChild = meta;
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    if (bestChild?.title && bestChild.title !== 'New chat' && bestChild.lastActivityAt) {
-      return { title: bestChild.title, lastActivityAt: bestChild.lastActivityAt };
-    }
-
-    // Fallback: dispatch-parent metadata
+  private async readChildMeta(metaPath: string): Promise<CoworkMetadata> {
     try {
-      const parentMetaPath = path.join(convPath, 'agent', `local_ditto_${convUuid}.json`);
-      const raw = await fs.readFile(parentMetaPath, 'utf8');
-      const meta = JSON.parse(raw) as CoworkMetadata;
-      const title = (meta.title && meta.title !== 'New chat')
-        ? meta.title
-        : (meta.initialMessage ?? '').slice(0, 60) || 'Cowork session';
-      return { title, lastActivityAt: meta.lastActivityAt ?? Date.now() };
+      const raw = await fs.readFile(metaPath, 'utf8');
+      return JSON.parse(raw) as CoworkMetadata;
     } catch {
-      return { title: 'Cowork session', lastActivityAt: bestTs || Date.now() };
+      return {};
     }
   }
 

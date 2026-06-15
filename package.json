@@ -2,7 +2,7 @@
   "name": "edo-tensei",
   "displayName": "Edo Tensei - Cross-IDE AI Session Handoff",
   "description": "%extension.description%",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "publisher": "Pain-Labs",
   "icon": "docs/assets/edo_tensei_logo_128.png",
   "license": "MIT",

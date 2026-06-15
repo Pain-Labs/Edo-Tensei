@@ -75,6 +75,8 @@ export class KiroExtractor implements IChatExtractor {
       if (appData) {
         dirs.push(path.join(appData, 'Kiro', 'User', 'globalStorage', 'kiro.kiroagent'));
       }
+    } else if (process.platform === 'darwin') {
+      dirs.push(path.join(home, 'Library', 'Application Support', 'Kiro', 'User', 'globalStorage', 'kiro.kiroagent'));
     } else {
       dirs.push(path.join(home, '.config', 'Kiro', 'User', 'globalStorage', 'kiro.kiroagent'));
     }

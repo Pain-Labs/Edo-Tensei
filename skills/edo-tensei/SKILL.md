@@ -1,7 +1,7 @@
 ---
 name: edo-tensei
-description: Transfers AI session context across IDEs (Claude, Copilot, Cursor, Kiro, Windsurf, Trae, Antigravity, Codex) by reading local session files directly. Works in any environment with file system access — no VS Code or MCP required. Use this skill when the user wants to continue work from another AI tool, summarize a recent session, or generate a structured handoff prompt.
-argument-hint: "[claude|copilot|cursor|codex|kiro|windsurf|trae|antigravity]"
+description: Transfers AI session context across IDEs (Claude Code, Claude.ai Cowork, Copilot, Cursor, Kiro, Windsurf, Trae, Antigravity, Codex) by reading local session files directly. Works in any environment with file system access — no VS Code or MCP required. Use this skill when the user wants to continue work from another AI tool, summarize a recent session, or generate a structured handoff prompt.
+argument-hint: "[claude|cowork|copilot|cursor|codex|kiro|windsurf|trae|antigravity]"
 ---
 
 # Edo Tensei
@@ -64,13 +64,14 @@ Before reading any large file:
 Search the target IDE first if the user specified one. Otherwise try in this order:
 
 1. Claude Code
-2. GitHub Copilot
-3. Cursor
-4. OpenAI Codex CLI
-5. Kiro
-6. Windsurf
-7. Trae
-8. Antigravity
+2. Claude.ai Cowork
+3. GitHub Copilot
+4. Cursor
+5. OpenAI Codex CLI
+6. Kiro
+7. Windsurf
+8. Trae
+9. Antigravity
 
 ### Claude Code
 
@@ -97,6 +98,36 @@ ls -lt ~/.claude/projects/*${PROJECT_NAME}*/*.jsonl 2>/dev/null | head -5
 ```
 
 **Read**: JSONL — filter by top-level `type === "user"` or `"assistant"`. Extract `message.content[].text` (skip `tool_result` items) and `message.content[].thinking` (reasoning). `cwd` field on some lines gives the actual workspace path. Full details: [session-claude.md](session-claude.md)
+
+---
+
+### Claude.ai Cowork
+
+**Paths**
+| OS | Path |
+|---|---|
+| macOS | `~/Library/Application Support/Claude/local-agent-mode-sessions/` |
+| Linux | `~/.config/Claude/local-agent-mode-sessions/` |
+| Windows | `%APPDATA%\Claude\local-agent-mode-sessions\` |
+
+Structure: `{session-uuid}/{conversation-uuid}/agent/local_ditto_{conversation-uuid}/audit.jsonl`  
+Session metadata (title, cwd, timestamps): `{conversation-uuid}/local_{child-uuid}.json`  
+Child sub-sessions (tool/MCP calls): `{conversation-uuid}/local_{child-uuid}/audit.jsonl`
+
+**Find**
+```bash
+# macOS — newest session → newest conversation → main transcript path
+BASE=~/Library/Application\ Support/Claude/local-agent-mode-sessions
+SESSION=$(ls -t "$BASE" | head -1)
+CONV=$(ls -t "$BASE/$SESSION" | head -1)
+echo "$BASE/$SESSION/$CONV/agent/local_ditto_${CONV}/audit.jsonl"
+```
+
+**Read**: JSONL — filter by top-level `type === "user"` or `type === "assistant"`.  
+User: `message.content` is a plain **string**.  
+Assistant: `message.content[]` array — extract `type === "text"` → `text`; optionally `type === "thinking"` → `thinking`.  
+Skip: `type === "system"`, `"rate_limit_event"`, `"result"`.  
+Timestamps on `_audit_timestamp` field. Full details: [session-claude-cowork.md](session-claude-cowork.md)
 
 ---
 

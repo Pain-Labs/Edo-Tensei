@@ -13,7 +13,7 @@ export interface ChatMessage {
  * A session extracted from a specific IDE's local storage.
  */
 export interface CapturedSession {
-  sourceIde: 'copilot' | 'cursor' | 'antigravity' | 'windsurf' | 'trae' | 'kiro' | 'claude' | 'codex';
+  sourceIde: 'copilot' | 'cursor' | 'antigravity' | 'windsurf' | 'trae' | 'kiro' | 'claude' | 'codex' | 'cowork';
   capturedAt: string; // ISO timestamp
   sessionId?: string;
   title?: string;

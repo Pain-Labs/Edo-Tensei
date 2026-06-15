@@ -127,7 +127,7 @@ echo "$BASE/$SESSION/$CONV/agent/local_ditto_${CONV}/audit.jsonl"
 User: `message.content` is a plain **string**.  
 Assistant: `message.content[]` array — extract `type === "text"` → `text`; optionally `type === "thinking"` → `thinking`.  
 Skip: `type === "system"`, `"rate_limit_event"`, `"result"`.  
-Timestamps on `_audit_timestamp` field. Full details: [session-cowork.md](session-cowork.md)
+Timestamps on `_audit_timestamp` field. Full details: [session-claude-cowork.md](session-claude-cowork.md)
 
 ---
 

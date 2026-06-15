@@ -71,14 +71,18 @@ describe('CoworkExtractor.recordToMessage', () => {
     expect(msg).toBeUndefined()
   })
 
-  it('returns undefined for non user/assistant record types', () => {
-    expect(ext().recordToMessage({ type: 'system', message: { content: 'ignored' } })).toBeUndefined()
-    expect(ext().recordToMessage({ type: 'result', message: { content: 'done' } })).toBeUndefined()
-    expect(ext().recordToMessage({ type: 'rate_limit_event' })).toBeUndefined()
+  it.each(['system', 'result', 'rate_limit_event'])(
+    'returns undefined for record type "%s"',
+    (type) => {
+      expect(ext().recordToMessage({ type, message: { content: 'ignored' } })).toBeUndefined()
+    },
+  )
+
+  it('returns undefined when user content is whitespace-only', () => {
+    expect(ext().recordToMessage({ type: 'user', message: { content: '   ' } })).toBeUndefined()
   })
 
-  it('returns undefined when content produces empty text', () => {
-    expect(ext().recordToMessage({ type: 'user', message: { content: '   ' } })).toBeUndefined()
+  it('returns undefined when assistant content array is empty', () => {
     expect(ext().recordToMessage({ type: 'assistant', message: { content: [] } })).toBeUndefined()
   })
 
@@ -102,210 +106,194 @@ describe('CoworkExtractor.recordToMessage', () => {
 // ── System injection filtering ────────────────────────────────────────────────
 
 describe('CoworkExtractor system injection filtering via recordToMessage', () => {
-  const injections = [
+  it.each([
     'Task "Install package" completed. Use read_transcript to continue.',
     'You ended the turn without calling any tools.',
     "You've hit your session limit for this period.",
     'You have 3 tasks remaining.',
     'SendUserMessage called with invalid args.',
-  ]
-
-  for (const text of injections) {
-    it(`filters: "${text.slice(0, 50)}"`, () => {
-      const msg = ext().recordToMessage({ type: 'user', message: { content: text } })
-      expect(msg).toBeUndefined()
-    })
-  }
-
-  it('does not filter real user messages', () => {
-    const realMessages = [
-      '可以幫我安裝 Meta Ads MCP 嗎',
-      'Fix the bug on line 42',
-      'What is the current status of my campaign?',
-    ]
-    for (const text of realMessages) {
-      const msg = ext().recordToMessage({ type: 'user', message: { content: text } })
-      expect(msg).toBeDefined()
-      expect(msg?.content).toBe(text)
-    }
+  ])('filters system injection: "%s"', (text) => {
+    const msg = ext().recordToMessage({ type: 'user', message: { content: text } })
+    expect(msg).toBeUndefined()
   })
 })
 
 // ── File-based tests (parseAuditJsonl, prescanFirstUserMessage, readChildMeta) ─
 
-let tmpDir: string
+describe('CoworkExtractor file-based', () => {
+  let tmpDir: string
 
-beforeEach(async () => {
-  tmpDir = await mkdtemp(join(tmpdir(), 'cowork-test-'))
-})
-afterEach(async () => {
-  await rm(tmpDir, { recursive: true, force: true })
-})
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), 'cowork-test-'))
+  })
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true })
+  })
 
-// ── parseAuditJsonl ───────────────────────────────────────────────────────────
+  // ── parseAuditJsonl ─────────────────────────────────────────────────────────
 
-describe('CoworkExtractor.parseAuditJsonl', () => {
-  it('parses user and assistant messages from JSONL', async () => {
-    const file = join(tmpDir, 'audit.jsonl')
-    await writeFile(
-      file,
-      [userRecord('Hello'), assistantRecord([{ type: 'text', text: 'Hi there' }])].join('\n'),
+  describe('parseAuditJsonl', () => {
+    it('parses user and assistant messages from JSONL', async () => {
+      const file = join(tmpDir, 'audit.jsonl')
+      await writeFile(
+        file,
+        [userRecord('Hello'), assistantRecord([{ type: 'text', text: 'Hi there' }])].join('\n'),
+      )
+      const messages = await ext().parseAuditJsonl(file)
+      expect(messages).toHaveLength(2)
+      expect(messages[0]).toMatchObject({ role: 'user', content: 'Hello' })
+      expect(messages[1]).toMatchObject({ role: 'assistant', content: 'Hi there' })
+    })
+
+    it('deduplicates identical messages within 60 seconds', async () => {
+      const ts1 = '2026-01-01T00:00:00Z'
+      const ts2 = '2026-01-01T00:00:07Z' // Cowork dispatch echo is typically ~7s
+      const file = join(tmpDir, 'audit.jsonl')
+      await writeFile(file, [userRecord('Same message', ts1), userRecord('Same message', ts2)].join('\n'))
+      const messages = await ext().parseAuditJsonl(file)
+      expect(messages).toHaveLength(1)
+      expect(messages[0].content).toBe('Same message')
+    })
+
+    it('allows same content again after the 60-second dedup window', async () => {
+      const ts1 = '2026-01-01T00:00:00Z'
+      const ts2 = '2026-01-01T00:01:30Z'
+      const file = join(tmpDir, 'audit.jsonl')
+      await writeFile(file, [userRecord('Same message', ts1), userRecord('Same message', ts2)].join('\n'))
+      const messages = await ext().parseAuditJsonl(file)
+      expect(messages).toHaveLength(2)
+    })
+
+    it('always accepts different content regardless of timing', async () => {
+      const ts = '2026-01-01T00:00:00Z'
+      const file = join(tmpDir, 'audit.jsonl')
+      await writeFile(
+        file,
+        [userRecord('Message A', ts), userRecord('Message B', ts), userRecord('Message C', ts)].join('\n'),
+      )
+      const messages = await ext().parseAuditJsonl(file)
+      expect(messages).toHaveLength(3)
+    })
+
+    it('filters out system injection user messages', async () => {
+      const file = join(tmpDir, 'audit.jsonl')
+      await writeFile(
+        file,
+        [
+          userRecord('Real question from human'),
+          userRecord('Task "Install" completed. Use read_transcript to proceed.'),
+          assistantRecord([{ type: 'text', text: 'Real reply' }]),
+        ].join('\n'),
+      )
+      const messages = await ext().parseAuditJsonl(file)
+      expect(messages).toHaveLength(2)
+      expect(messages.some((m: { content: string }) => m.content.startsWith('Task'))).toBe(false)
+    })
+
+    it('excludes thinking blocks from assistant output', async () => {
+      const file = join(tmpDir, 'audit.jsonl')
+      await writeFile(
+        file,
+        assistantRecord([
+          { type: 'thinking', thinking: 'internal reasoning' },
+          { type: 'text', text: 'Here is my answer.' },
+        ]),
+      )
+      const messages = await ext().parseAuditJsonl(file)
+      expect(messages).toHaveLength(1)
+      expect(messages[0].content).toBe('Here is my answer.')
+      expect(messages[0].content).not.toContain('internal reasoning')
+    })
+
+    it('skips blank lines and invalid JSON silently', async () => {
+      const file = join(tmpDir, 'audit.jsonl')
+      await writeFile(file, ['', '  ', 'not-json', '{incomplete', userRecord('Valid message')].join('\n'))
+      const messages = await ext().parseAuditJsonl(file)
+      expect(messages).toHaveLength(1)
+      expect(messages[0].content).toBe('Valid message')
+    })
+
+    it.each(['system', 'result'])(
+      'skips records of type "%s"',
+      async (type) => {
+        const file = join(tmpDir, 'audit.jsonl')
+        await writeFile(
+          file,
+          [JSON.stringify({ type, message: { content: 'ignored' } }), userRecord('Kept')].join('\n'),
+        )
+        const messages = await ext().parseAuditJsonl(file)
+        expect(messages).toHaveLength(1)
+        expect(messages[0].content).toBe('Kept')
+      },
     )
-    const messages = await ext().parseAuditJsonl(file)
-    expect(messages).toHaveLength(2)
-    expect(messages[0]).toMatchObject({ role: 'user', content: 'Hello' })
-    expect(messages[1]).toMatchObject({ role: 'assistant', content: 'Hi there' })
+
+    it('returns empty array when file does not exist', async () => {
+      const messages = await ext().parseAuditJsonl(join(tmpDir, 'nonexistent.jsonl'))
+      expect(messages).toEqual([])
+    })
   })
 
-  it('deduplicates identical messages within 60 seconds', async () => {
-    const ts1 = '2026-01-01T00:00:00Z'
-    const ts2 = '2026-01-01T00:00:07Z' // 7 seconds later — Cowork dispatch echo
-    const file = join(tmpDir, 'audit.jsonl')
-    await writeFile(file, [userRecord('Same message', ts1), userRecord('Same message', ts2)].join('\n'))
-    const messages = await ext().parseAuditJsonl(file)
-    expect(messages).toHaveLength(1)
-    expect(messages[0].content).toBe('Same message')
+  // ── prescanFirstUserMessage ─────────────────────────────────────────────────
+
+  describe('prescanFirstUserMessage', () => {
+    it('returns the first real user message', async () => {
+      const file = join(tmpDir, 'audit.jsonl')
+      await writeFile(
+        file,
+        [userRecord('First real question'), assistantRecord([{ type: 'text', text: 'Reply' }])].join('\n'),
+      )
+      const msg = await ext().prescanFirstUserMessage(file)
+      expect(msg).toMatchObject({ role: 'user', content: 'First real question' })
+    })
+
+    it('skips system injection lines and returns first genuine user message', async () => {
+      const file = join(tmpDir, 'audit.jsonl')
+      await writeFile(
+        file,
+        [
+          userRecord('Task "Init" completed. Use read_transcript to proceed.'),
+          userRecord('You ended the turn without calling any tools.'),
+          userRecord('Actual human question'),
+        ].join('\n'),
+      )
+      const msg = await ext().prescanFirstUserMessage(file)
+      expect(msg?.content).toBe('Actual human question')
+    })
+
+    it('returns undefined when no user message exists', async () => {
+      const file = join(tmpDir, 'audit.jsonl')
+      await writeFile(file, assistantRecord([{ type: 'text', text: 'Only assistant speaking' }]))
+      const msg = await ext().prescanFirstUserMessage(file)
+      expect(msg).toBeUndefined()
+    })
+
+    it('returns undefined when file does not exist', async () => {
+      const msg = await ext().prescanFirstUserMessage(join(tmpDir, 'missing.jsonl'))
+      expect(msg).toBeUndefined()
+    })
   })
 
-  it('allows same content again after the 60-second dedup window', async () => {
-    const ts1 = '2026-01-01T00:00:00Z'
-    const ts2 = '2026-01-01T00:01:30Z' // 90 seconds later — a genuine repeat
-    const file = join(tmpDir, 'audit.jsonl')
-    await writeFile(file, [userRecord('Same message', ts1), userRecord('Same message', ts2)].join('\n'))
-    const messages = await ext().parseAuditJsonl(file)
-    expect(messages).toHaveLength(2)
-  })
+  // ── readChildMeta ───────────────────────────────────────────────────────────
 
-  it('always accepts different content regardless of timing', async () => {
-    const ts = '2026-01-01T00:00:00Z'
-    const file = join(tmpDir, 'audit.jsonl')
-    await writeFile(
-      file,
-      [userRecord('Message A', ts), userRecord('Message B', ts), userRecord('Message C', ts)].join('\n'),
-    )
-    const messages = await ext().parseAuditJsonl(file)
-    expect(messages).toHaveLength(3)
-  })
+  describe('readChildMeta', () => {
+    it('reads title and lastActivityAt from a child session JSON file', async () => {
+      const file = join(tmpDir, 'local_abc123.json')
+      await writeFile(file, JSON.stringify({ title: 'Test session', lastActivityAt: 1750000000000 }))
+      const meta = await ext().readChildMeta(file)
+      expect(meta.title).toBe('Test session')
+      expect(meta.lastActivityAt).toBe(1750000000000)
+    })
 
-  it('filters out system injection user messages', async () => {
-    const file = join(tmpDir, 'audit.jsonl')
-    await writeFile(
-      file,
-      [
-        userRecord('Real question from human'),
-        userRecord('Task "Install" completed. Use read_transcript to proceed.'),
-        assistantRecord([{ type: 'text', text: 'Real reply' }]),
-      ].join('\n'),
-    )
-    const messages = await ext().parseAuditJsonl(file)
-    expect(messages).toHaveLength(2)
-    expect(messages.some((m: any) => m.content.startsWith('Task'))).toBe(false)
-  })
+    it('returns empty object when file does not exist', async () => {
+      const meta = await ext().readChildMeta(join(tmpDir, 'nonexistent.json'))
+      expect(meta).toEqual({})
+    })
 
-  it('excludes thinking blocks from assistant output', async () => {
-    const file = join(tmpDir, 'audit.jsonl')
-    await writeFile(
-      file,
-      assistantRecord([
-        { type: 'thinking', thinking: 'Let me think through this carefully...' },
-        { type: 'text', text: 'Here is my answer.' },
-      ]),
-    )
-    const messages = await ext().parseAuditJsonl(file)
-    expect(messages).toHaveLength(1)
-    expect(messages[0].content).toBe('Here is my answer.')
-    expect(messages[0].content).not.toContain('Let me think')
-  })
-
-  it('skips blank lines and invalid JSON silently', async () => {
-    const file = join(tmpDir, 'audit.jsonl')
-    await writeFile(file, ['', '  ', 'not-json', '{incomplete', userRecord('Valid message')].join('\n'))
-    const messages = await ext().parseAuditJsonl(file)
-    expect(messages).toHaveLength(1)
-    expect(messages[0].content).toBe('Valid message')
-  })
-
-  it('skips records whose type is not user or assistant', async () => {
-    const file = join(tmpDir, 'audit.jsonl')
-    await writeFile(
-      file,
-      [
-        JSON.stringify({ type: 'system', message: { content: 'system context' } }),
-        JSON.stringify({ type: 'result', output: 'done' }),
-        userRecord('Kept'),
-      ].join('\n'),
-    )
-    const messages = await ext().parseAuditJsonl(file)
-    expect(messages).toHaveLength(1)
-    expect(messages[0].content).toBe('Kept')
-  })
-
-  it('returns empty array when file does not exist', async () => {
-    const messages = await ext().parseAuditJsonl(join(tmpDir, 'nonexistent.jsonl'))
-    expect(messages).toEqual([])
-  })
-})
-
-// ── prescanFirstUserMessage ───────────────────────────────────────────────────
-
-describe('CoworkExtractor.prescanFirstUserMessage', () => {
-  it('returns the first real user message', async () => {
-    const file = join(tmpDir, 'audit.jsonl')
-    await writeFile(
-      file,
-      [userRecord('First real question'), assistantRecord([{ type: 'text', text: 'Reply' }])].join('\n'),
-    )
-    const msg = await ext().prescanFirstUserMessage(file)
-    expect(msg).toMatchObject({ role: 'user', content: 'First real question' })
-  })
-
-  it('skips system injection lines and returns first genuine user message', async () => {
-    const file = join(tmpDir, 'audit.jsonl')
-    await writeFile(
-      file,
-      [
-        userRecord('Task "Init" completed. Use read_transcript to proceed.'),
-        userRecord('You ended the turn without calling any tools.'),
-        userRecord('Actual human question'),
-      ].join('\n'),
-    )
-    const msg = await ext().prescanFirstUserMessage(file)
-    expect(msg?.content).toBe('Actual human question')
-  })
-
-  it('returns undefined when no user message exists', async () => {
-    const file = join(tmpDir, 'audit.jsonl')
-    await writeFile(file, assistantRecord([{ type: 'text', text: 'Only assistant speaking' }]))
-    const msg = await ext().prescanFirstUserMessage(file)
-    expect(msg).toBeUndefined()
-  })
-
-  it('returns undefined when file does not exist', async () => {
-    const msg = await ext().prescanFirstUserMessage(join(tmpDir, 'missing.jsonl'))
-    expect(msg).toBeUndefined()
-  })
-})
-
-// ── readChildMeta ─────────────────────────────────────────────────────────────
-
-describe('CoworkExtractor.readChildMeta', () => {
-  it('reads title and lastActivityAt from a child session JSON file', async () => {
-    const file = join(tmpDir, 'local_abc123.json')
-    await writeFile(file, JSON.stringify({ title: 'Meta Ads MCP test', lastActivityAt: 1750000000000 }))
-    const meta = await ext().readChildMeta(file)
-    expect(meta.title).toBe('Meta Ads MCP test')
-    expect(meta.lastActivityAt).toBe(1750000000000)
-  })
-
-  it('returns empty object when file does not exist', async () => {
-    const meta = await ext().readChildMeta(join(tmpDir, 'nonexistent.json'))
-    expect(meta).toEqual({})
-  })
-
-  it('returns empty object for malformed JSON', async () => {
-    const file = join(tmpDir, 'bad.json')
-    await writeFile(file, 'not valid json {{')
-    const meta = await ext().readChildMeta(file)
-    expect(meta).toEqual({})
+    it('returns empty object for malformed JSON', async () => {
+      const file = join(tmpDir, 'bad.json')
+      await writeFile(file, 'not valid json {{')
+      const meta = await ext().readChildMeta(file)
+      expect(meta).toEqual({})
+    })
   })
 })

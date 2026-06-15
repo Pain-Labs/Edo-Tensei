@@ -113,6 +113,10 @@ export class CopilotExtractor implements IChatExtractor {
     if (process.platform === 'win32') {
       // Windows VS Code stores user data under APPDATA; without it there is no
       // reliable default equivalent to the XDG paths below.
+    } else if (process.platform === 'darwin') {
+      dirs.push(path.join(home, 'Library', 'Application Support', 'Code', 'User'));
+      dirs.push(path.join(home, 'Library', 'Application Support', 'Code - Insiders', 'User'));
+      dirs.push(path.join(home, '.vscode-server', 'data', 'User'));
     } else {
       dirs.push(path.join(home, '.config', 'Code', 'User'));
       dirs.push(path.join(home, '.vscode-server', 'data', 'User'));

@@ -10,6 +10,7 @@ import { AntigravityExtractor } from './extractors/AntigravityExtractor';
 import { KiroExtractor } from './extractors/KiroExtractor';
 import { ClaudeExtractor } from './extractors/ClaudeExtractor';
 import { CodexExtractor } from './extractors/CodexExtractor';
+import { CoworkExtractor } from './extractors/CoworkExtractor';
 import { SessionSearchEngine, SessionSearchMatch, SessionSearchQuery } from './SessionSearchEngine';
 
 export class SessionHandoffService {
@@ -33,6 +34,7 @@ export class SessionHandoffService {
             new AntigravityExtractor(),
             new KiroExtractor(),
             new ClaudeExtractor(),
+            new CoworkExtractor(),
             new CodexExtractor(),
             // [TODO] Windsurf extraction is intentionally disabled until a reliable parser exists.
             // new WindsurfExtractor(),
@@ -891,6 +893,7 @@ export class SessionHandoffService {
         const home = os.homedir();
         const appData = process.env.APPDATA ?? '';
         const isWin = process.platform === 'win32';
+        const isMac = process.platform === 'darwin';
 
         return [
             {
@@ -904,6 +907,11 @@ export class SessionHandoffService {
                         path.join(appData, 'Code', 'User', 'globalStorage', 'emptyWindowChatSessions'),
                         path.join(appData, 'Code', 'User', 'workspaceStorage'),
                       ]
+                    : isMac
+                    ? [
+                        path.join(home, 'Library', 'Application Support', 'Code', 'User', 'globalStorage', 'emptyWindowChatSessions'),
+                        path.join(home, 'Library', 'Application Support', 'Code', 'User', 'workspaceStorage'),
+                      ]
                     : [
                         path.join(home, '.config', 'Code', 'User', 'globalStorage', 'emptyWindowChatSessions'),
                         path.join(home, '.vscode-server', 'data', 'User', 'globalStorage', 'emptyWindowChatSessions'),
@@ -913,12 +921,16 @@ export class SessionHandoffService {
                 ide: 'Cursor',
                 paths: isWin
                     ? [path.join(appData, 'Cursor', 'User', 'workspaceStorage')]
+                    : isMac
+                    ? [path.join(home, 'Library', 'Application Support', 'Cursor', 'User', 'workspaceStorage')]
                     : [path.join(home, '.config', 'Cursor', 'User', 'workspaceStorage')],
             },
             {
                 ide: 'Kiro',
                 paths: isWin
                     ? [path.join(appData, 'Kiro', 'User', 'globalStorage', 'kiro.kiroagent')]
+                    : isMac
+                    ? [path.join(home, 'Library', 'Application Support', 'Kiro', 'User', 'globalStorage', 'kiro.kiroagent')]
                     : [path.join(home, '.config', 'Kiro', 'User', 'globalStorage', 'kiro.kiroagent')],
             },
             {

@@ -17,16 +17,34 @@ export type SkillGenerationResult =
     | { status: 'no_workspace' };
 
 export class SkillGenerator {
-    public static getProjectRoot(): string | undefined {
+    public static async getProjectRoot(): Promise<string | undefined> {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders || workspaceFolders.length === 0) {
             return undefined;
         }
-        return workspaceFolders[0].uri.fsPath;
+        if (workspaceFolders.length === 1) {
+            return workspaceFolders[0].uri.fsPath;
+        }
+
+        const options = workspaceFolders.map(folder => ({
+            label: folder.name || path.basename(folder.uri.fsPath),
+            description: folder.uri.fsPath,
+            projectRoot: folder.uri.fsPath,
+        }));
+
+        const picked = await vscode.window.showQuickPick(options, {
+            placeHolder: I18n.getMessage('skill.pickWorkspace'),
+        });
+        return picked?.projectRoot;
     }
 
     private static getSkillsSourceDir(): string {
-        return path.join(__dirname, '..', 'skills', 'edo-tensei');
+        const bundledPath = path.join(__dirname, '..', 'skills', 'edo-tensei');
+        if (fs.existsSync(path.join(bundledPath, 'SKILL.md'))) {
+            return bundledPath;
+        }
+
+        return path.join(__dirname, '..', '..', 'skills', 'edo-tensei');
     }
 
     private static readSkillMarkdown(): string {
@@ -48,8 +66,12 @@ export class SkillGenerator {
     }
 
     public static async generateSkill(): Promise<SkillGenerationResult> {
-        const projectRoot = this.getProjectRoot();
+        const hasWorkspace = (vscode.workspace.workspaceFolders?.length ?? 0) > 0;
+        const projectRoot = await this.getProjectRoot();
         if (!projectRoot) {
+            if (hasWorkspace) {
+                return { status: 'cancelled', projectRoot: '' };
+            }
             vscode.window.showErrorMessage(I18n.getMessage('skill.noWorkspace'));
             return { status: 'no_workspace' };
         }

@@ -58,7 +58,7 @@
 - **원클릭 소환**: 형식화된 인계 프롬프트를 클립보드에 복사 — 새 AI 채팅에 붙여넣기만 하면 컨텍스트가 즉시 복원됩니다.
 - **`.edo_tensei/`로 내보내기**: 인계 프롬프트를 `IDE/프로젝트/타임스탬프` 형태로 정리된 Markdown 파일로 저장합니다.
 - **원본 파일 미리보기**: VS Code에서 직접 원본 세션 파일을 열어 검사하거나 편집할 수 있습니다.
-- **Agent Skill Generator**: Claude Code, GitHub Copilot, Kiro, Antigravity, Cline, Gemini CLI, Cursor용으로 재사용 가능한 `edo-tensei` skill/rule 파일을 생성합니다.
+- **Agent Skill Installer**: **Edo Tensei: Agent Skill 설치**를 실행해 공식 `edo-tensei` skill을 설치합니다. 특정 agent용 skill/rule 파일을 직접 써야 할 때만 **Generate Skill Files Manually**를 사용합니다.
 - **Model Context Protocol (MCP)**: 내장된 MCP 서버를 통해 AI 에이전트(Cursor, Copilot, Claude, Kiro, Antigravity)가 프로그래밍 방식으로 Edo Tensei 세션을 검색, 읽기 및 내보낼 수 있습니다. "Show MCP Config" UI를 사용하여 특정 AI에 맞는 구성을 쉽게 생성할 수 있습니다.
 - **`.gitignore` 헬퍼**: 처음 사용 시 `.edo_tensei/`를 `.gitignore`에 추가하도록 자동으로 안내합니다.
 
@@ -117,7 +117,7 @@ VS Code 설정에서 `edoTensei`를 검색합니다.
 | Copy Raw File Path | 세션 파일 경로를 클립보드에 복사 |
 | Export Session to .edo_tensei | 인계 프롬프트를 Markdown 파일로 저장 |
 | Export All Sessions to .edo_tensei | 지정한 IDE의 모든 세션을 `.edo_tensei/`에 저장(IDE 행의 inline 버튼) |
-| Generate Agent Skill | 다른 AI 도구용으로 재사용 가능한 `edo-tensei` skill/rule 파일 생성 |
+| Agent Skill 설치 | 공식 `edo-tensei` skill을 설치합니다. 특정 agent용 파일이 필요할 때만 명령 안에서 **Generate Skill Files Manually**를 사용합니다 |
 | Show MCP Config | AI 에이전트에 복사하여 붙여넣을 수 있는 MCP 서버 구성을 얻기 위한 UI 패널 열기 |
 
 ---
@@ -141,7 +141,7 @@ MCP 서버 설정 방법:
 
 ## Agent Skills
 
-**Generate Agent Skill**을 사용하면 다른 AI 도구용으로 재사용 가능한 `edo-tensei` skill 또는 rule을 만들 수 있습니다. 생성되는 결과물은 느슨한 메모가 아니라, 이어받는 에이전트에게 가능한 session 파일을 찾는 방법, 최근의 관련 부분만 읽는 방법, 확신이 낮을 때 멈추는 기준, 그리고 깔끔한 인계 요약을 반환하는 형식을 알려주는 구조화된 SOP입니다.
+**Edo Tensei: Agent Skill 설치**를 실행하고 **Auto Install (Recommended)**를 선택해 공식 `edo-tensei` skill을 설치합니다. `npx skills add Pain-Labs/Edo-Tensei`를 직접 실행할 수도 있습니다. 특정 agent용 skill/rule 파일을 직접 써야 할 때만 **Generate Skill Files Manually**를 선택합니다. 생성되는 결과물은 느슨한 메모가 아니라, 이어받는 에이전트에게 가능한 session 파일을 찾는 방법, 최근의 관련 부분만 읽는 방법, 확신이 낮을 때 멈추는 기준, 그리고 깔끔한 인계 요약을 반환하는 형식을 알려주는 구조화된 SOP입니다.
 
 지원 출력 경로:
 

@@ -191,7 +191,7 @@
         "command": "edoTensei.generateAgentSkill",
         "title": "%command.generateAgentSkill.title%",
         "category": "Edo Tensei",
-        "icon": "$(hubot)"
+        "icon": "$(cloud-download)"
       },
       {
         "command": "edoTensei.copyReferencePrompt",

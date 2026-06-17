@@ -39,6 +39,12 @@ describe('SkillGenerator', () => {
       if (choices[0]?.projectRoot) {
         return choices[1]
       }
+      if (choices.some(choice => choice.value === 'manual')) {
+        return choices.find(choice => choice.value === 'manual')
+      }
+      if (choices.some(choice => choice.value === 'claude')) {
+        return [choices.find(choice => choice.value === 'claude')]
+      }
       return [choices[0]]
     })
     window.showQuickPick = quickPick
@@ -54,7 +60,7 @@ describe('SkillGenerator', () => {
     ])
     await expect(fs.access(result.skillPaths[0])).resolves.toBeUndefined()
     await expect(fs.access(path.join(first.uri.fsPath, '.claude'))).rejects.toThrow()
-    expect(quickPick).toHaveBeenCalledTimes(2)
+    expect(quickPick).toHaveBeenCalledTimes(3)
   })
 
   it('treats cancelling the workspace picker as a quiet cancellation', async () => {

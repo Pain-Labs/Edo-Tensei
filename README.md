@@ -58,7 +58,7 @@ This tool is named after this concept to symbolize "context reincarnation" in AI
 - **One-Click Resurrect**: Copies a formatted handoff prompt to clipboard — paste it into any new AI chat to restore context instantly.
 - **Export to `.edo_tensei/`**: Saves handoff prompts as Markdown files, organized by `IDE/project/timestamp`.
 - **Raw File Preview**: Opens the original session file directly in VS Code for manual inspection or editing.
-- **Agent Skill Generator**: Generates reusable `edo-tensei` skill/rule files for Claude Code, GitHub Copilot, Kiro, Antigravity, Cline, and Cursor.
+- **Agent Skill Installer**: Run **Edo Tensei: Install Agent Skill** to install the canonical `edo-tensei` skill. Use **Generate Skill Files Manually** only when you need agent-specific skill/rule files.
 - **Model Context Protocol (MCP)**: Built-in MCP server allows AI agents (Cursor, Copilot, Claude, Kiro, Antigravity) to programmatically discover, read, and export Edo Tensei sessions. Use the "Show MCP Config" UI to easily configure your specific AI client.
 - **`.gitignore` Helper**: Automatically prompts you to add `.edo_tensei/` to `.gitignore` so local exports don't pollute your repo.
 
@@ -117,7 +117,7 @@ All commands are available via the Command Palette (`Ctrl+Shift+P`) under the `E
 | Copy Raw File Path | Copy the session file path to clipboard |
 | Export Session to .edo_tensei | Save handoff prompt as a Markdown file |
 | Export All Sessions to .edo_tensei | Save all sessions for the selected IDE to `.edo_tensei/` (inline button on the IDE row) |
-| Generate Agent Skill | Generate a reusable `edo-tensei` skill/rule file for another AI agent |
+| Install Agent Skill | Install the canonical `edo-tensei` skill; use **Generate Skill Files Manually** inside the command only when you need agent-specific files |
 | Show MCP Config | Open UI panel to get copy-paste MCP server configuration for your AI client |
 
 ---
@@ -141,13 +141,13 @@ For detailed documentation, see the [MCP Server README](./mcp-server/README.md).
 
 ## Agent Skills
 
-Install the canonical `edo-tensei` skill directly:
+Run **Edo Tensei: Install Agent Skill** and choose **Auto Install (Recommended)** to install the canonical `edo-tensei` skill. You can also run the same install command directly:
 
 ```bash
 npx skills add Pain-Labs/Edo-Tensei
 ```
 
-Use **Generate Agent Skill** to create a reusable `edo-tensei` skill or rule for another AI tool. The generated asset is designed as a structured SOP instead of a loose note: it tells the receiving agent how to locate likely session files, read only the recent relevant portion, stop when confidence is low, and return a clean handoff summary.
+Choose **Generate Skill Files Manually** only when you need to write agent-specific skill/rule files yourself. The generated asset is designed as a structured SOP instead of a loose note: it tells the receiving agent how to locate likely session files, read only the recent relevant portion, stop when confidence is low, and return a clean handoff summary.
 
 Supported outputs:
 

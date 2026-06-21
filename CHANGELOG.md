@@ -2,6 +2,13 @@
 
 All notable changes to the "Edo Tensei" extension will be documented in this file.
 
+## [1.6.1] - Multi-Workspace Skill Selection - 2026-06-18
+
+### 🐛 Bug Fix
+
+- **Agent Skill workspace picker** (closes #44): when multiple workspace folders are open, a QuickPick now lets the user choose which project to generate the skill into, instead of always defaulting to the first one
+- `.gitignore` rule insertion now anchors to the selected project root instead of the resolved export workspace folder
+
 ## [1.5.0] - Session Search & Save Fix - 2026-06-03
 
 ### 🔍 Session Keyword Search (closes #34)

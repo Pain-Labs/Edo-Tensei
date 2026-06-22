@@ -34,7 +34,7 @@ const IDE_READ_GUIDES: Record<string, string> = {
     '- Note: system prompt and instructions appear at the start; skip to user/bot turns',
   ].join('\n'),
   antigravity: [
-    'Format: JSONL (overview.txt, preview-only log)',
+    'Format: JSONL (transcript.jsonl or overview.txt, preview-only log)',
     '- Each line has `source` ("USER"/"MODEL") and `input` or `content` field',
     '- ⚠ Content is truncated at ~900 chars per message; full history lives in the cloud only',
   ].join('\n'),

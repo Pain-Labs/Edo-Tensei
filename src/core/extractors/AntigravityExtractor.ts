@@ -4,22 +4,21 @@
  * 讀取 Antigravity (Google DeepMind) 的對話記錄。
  *
  * 儲存路徑：
- *   ~\.gemini\antigravity\brain\{uuid}\.system_generated\logs\overview.txt
+ *   ~\.gemini\antigravity\brain\{uuid}\.system_generated\logs\transcript.jsonl (or overview.txt)
  *
  * ⚠️ 重要限制（2026-04-27 實測確認）：
- *   overview.txt 是 **preview-only 日誌**，並非完整對話記錄。
+ *   transcript.jsonl 是 **preview-only 日誌**，並非完整對話記錄。
  *   每筆訊息的 content 欄位最多保留約 900 chars，超出部分在雲端回傳時即截斷。
  *   截斷標記格式為 `<truncated N bytes>`。
  *   我們保留此標記而不將其隱藏，藉此清楚讓使用者知道對話記錄並不完整。
  *   完整對話記錄存於 Antigravity 雲端，本地不落地。
  *   這已是本地能讀取的最佳方案，待 Antigravity 開放 API 或 export 功能後再升級。
- *
- * overview.txt 格式：每行一個 JSON 物件，type 為 PLANNER_RESPONSE / TOOL_CALL_RESULT 等。
+ * transcript.jsonl / overview.txt 格式：每行一個 JSON 物件，type 為 PLANNER_RESPONSE / TOOL_CALL_RESULT 等。
  * 我們只需要 source=USER/USER_EXPLICIT 作為 user，source=MODEL 作為 assistant。
  *
  * 效能策略：
  *   - candidate 蒐集：readdir + stat 全並行（Promise.all）
- *   - 讀取與解析：overview.txt 通常 < 1MB，全部 Promise.all 並行 readFile + parse
+ *   - 讀取與解析：日誌檔案通常 < 1MB，全部 Promise.all 並行 readFile + parse
  */
 
 import * as fs from 'fs/promises';
@@ -27,6 +26,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { CapturedSession, ChatMessage, IChatExtractor } from './types';
 import { PathInference } from '../PathInference';
+import { getAntigravityBrainDirs } from './antigravityPaths';
 
 interface OverviewLine {
   step_index?: number;
@@ -49,7 +49,8 @@ interface OverviewLine {
 export class AntigravityExtractor implements IChatExtractor {
   readonly ideId = 'antigravity' as const;
 
-  private getBaseDir(): string {
+  /** 預設 brain 路徑，僅用於 extract() 的 empty fallback 回傳值。 */
+  private static defaultBrainDir(): string {
     return path.join(os.homedir(), '.gemini', 'antigravity', 'brain');
   }
 
@@ -57,29 +58,35 @@ export class AntigravityExtractor implements IChatExtractor {
     const sessions = await this.extractAll(_workspacePath, customScanPaths);
     return sessions.length > 0
       ? sessions[0]
-      : { sourceIde: this.ideId, capturedAt: new Date().toISOString(), messages: [], rawPath: this.getBaseDir(), readStatus: 'empty' };
+      : { sourceIde: this.ideId, capturedAt: new Date().toISOString(), messages: [], rawPath: AntigravityExtractor.defaultBrainDir(), readStatus: 'empty' };
   }
 
   async extractAll(workspacePath?: string, customScanPaths: string[] = []): Promise<CapturedSession[]> {
-    const baseDir = this.getBaseDir();
-    const dirsToScan = [...customScanPaths, baseDir];
+    const baseDirs = await getAntigravityBrainDirs();
+    const dirsToScan = Array.from(new Set([...customScanPaths, ...baseDirs]));
 
-    // Step 1: Collect all candidate overview.txt paths in parallel across all scan dirs
+    // Step 1: Collect all candidate transcript.jsonl / overview.txt paths in parallel across all scan dirs
     const candidateArrays = await Promise.all(
       dirsToScan.map(async (scanDir): Promise<Array<{ path: string; uuid: string; mtime: number; size: number }>> => {
         try {
           await fs.access(scanDir);
           const brainIds = await fs.readdir(scanDir);
 
-          // Stat all overview.txt files in parallel
+          // Stat all transcript.jsonl or overview.txt files in parallel
           const candidates = await Promise.all(
             brainIds.map(async (id): Promise<{ path: string; uuid: string; mtime: number; size: number } | undefined> => {
+              const transcriptPath = path.join(scanDir, id, '.system_generated', 'logs', 'transcript.jsonl');
               const overviewPath = path.join(scanDir, id, '.system_generated', 'logs', 'overview.txt');
               try {
-                const s = await fs.stat(overviewPath);
-                return { path: overviewPath, uuid: id, mtime: s.mtimeMs, size: s.size };
+                const s = await fs.stat(transcriptPath);
+                return { path: transcriptPath, uuid: id, mtime: s.mtimeMs, size: s.size };
               } catch {
-                return undefined;
+                try {
+                  const s = await fs.stat(overviewPath);
+                  return { path: overviewPath, uuid: id, mtime: s.mtimeMs, size: s.size };
+                } catch {
+                  return undefined;
+                }
               }
             })
           );
@@ -94,7 +101,7 @@ export class AntigravityExtractor implements IChatExtractor {
     const allCandidates = candidateArrays.flat();
     if (allCandidates.length === 0) return [];
 
-    // Step 2: Read and parse all overview.txt files in parallel
+    // Step 2: Read and parse all logs in parallel
     const sessionResults = await Promise.all(
       allCandidates.map(async (cand): Promise<CapturedSession | undefined> => {
         try {
@@ -120,9 +127,9 @@ export class AntigravityExtractor implements IChatExtractor {
                 workspacePathReason: inferredWorkspace.reason,
                 workspacePathEvidence: inferredWorkspace.evidence,
               } : undefined,
-              // 若原始日誌有截斷標記，記錄於 readStatus（overview.txt 的設計即為 preview-only）
-              readStatus: hasTruncation ? 'success' : 'success',
-              errorDetail: hasTruncation ? 'overview.txt is preview-only; some messages are truncated at source' : undefined,
+              // 日誌本身即為 preview-only，截斷不影響讀取狀態
+              readStatus: 'success',
+              errorDetail: hasTruncation ? 'Log file is preview-only; some messages are truncated at source' : undefined,
             };
           }
         } catch { /* skip */ }
@@ -155,7 +162,7 @@ export class AntigravityExtractor implements IChatExtractor {
           if (userRequestMatch) {
             content = userRequestMatch[1].trim();
           }
-          // 偵測 Antigravity overview.txt 的截斷標記，但不將其隱藏
+          // 偵測 Antigravity 日誌的截斷標記，但不將其隱藏
           const truncMatch = content.match(/<truncated \d+ bytes>\s*$/);
           if (truncMatch) {
             hasTruncation = true;
@@ -173,7 +180,7 @@ export class AntigravityExtractor implements IChatExtractor {
           // Case 1: Direct content
           if (obj.content || obj.text) {
              let content = obj.content || obj.text || '';
-             // 偵測 Antigravity overview.txt 的截斷標記，但不將其隱藏
+             // 偵測 Antigravity 日誌的截斷標記，但不將其隱藏
              const truncMatch = content.match(/<truncated \d+ bytes>\s*$/);
              if (truncMatch) {
                hasTruncation = true;

@@ -12,6 +12,7 @@ import { ClaudeExtractor } from './extractors/ClaudeExtractor';
 import { CodexExtractor } from './extractors/CodexExtractor';
 import { CoworkExtractor } from './extractors/CoworkExtractor';
 import { SessionSearchEngine, SessionSearchMatch, SessionSearchQuery } from './SessionSearchEngine';
+import { getAntigravityBrainDirsSync } from './extractors/antigravityPaths';
 
 export class SessionHandoffService {
     private static readonly EXTRACTOR_SCAN_CONCURRENCY = 2;
@@ -380,7 +381,7 @@ export class SessionHandoffService {
             '- Tip: search for `"role":"user"` to locate where the conversation begins',
         ].join('\n'),
         antigravity: [
-            'Format: JSONL (overview.txt, preview-only log)',
+            'Format: JSONL (transcript.jsonl or overview.txt, preview-only log)',
             '- Each line has `source` ("USER"/"MODEL") and `input` or `content` field',
             '- Filter by `source === "USER" || source === "MODEL"` to get conversation turns',
             '- ⚠ Content is truncated at ~900 chars per message; full history lives in the cloud only',
@@ -895,6 +896,8 @@ export class SessionHandoffService {
         const isWin = process.platform === 'win32';
         const isMac = process.platform === 'darwin';
 
+        const antigravityPaths = getAntigravityBrainDirsSync();
+
         return [
             {
                 ide: 'Claude Code',
@@ -943,7 +946,7 @@ export class SessionHandoffService {
             },
             {
                 ide: 'Gemini Code Assist',
-                paths: [path.join(home, '.gemini', 'antigravity', 'brain')],
+                paths: antigravityPaths,
             },
         ];
     }

@@ -179,7 +179,7 @@ The `.edo_tensei/` export folder is created inside your workspace. The extension
 - **macOS / Linux**: Not yet supported. The extension is currently Windows-only.
 - **Trae**: Not yet supported. Local databases use SQLCipher encryption; no public key is available.
 - **Windsurf**: Session files are stored in a binary protobuf format. The previous path-only fallback is currently disabled, so Windsurf sessions do not appear in scan results until a reliable parser is available.
-- **Antigravity**: Extracts from `overview.txt` (preview log), which truncates messages at ~900 characters. Full conversation history is stored in Antigravity's cloud only and is not accessible locally.
+- **Antigravity**: Extracts from `transcript.jsonl` or `overview.txt` (preview logs), which truncate messages at ~900 characters. Full conversation history is stored in Antigravity's cloud only and is not accessible locally.
 
 ---
 

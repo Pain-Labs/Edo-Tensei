@@ -42,3 +42,5 @@ test/fixtures/*
 docs/ui-redesign-plan.md
 docs/landing-page-redesign-notes.md
 reports/
+docs/issue/**
+

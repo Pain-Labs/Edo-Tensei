@@ -2,6 +2,13 @@
 
 All notable changes to the "Edo Tensei" extension will be documented in this file.
 
+## [1.6.2] - Antigravity Multi-Path & JSONL Support - 2026-06-23
+
+### 🚀 Feature
+
+- **Antigravity Multi-Path Detection**: Automatically scans multiple `.gemini/antigravity*` data directories under home directory (such as `antigravity-ide` or backup profiles) dynamically.
+- **Antigravity JSONL Support**: Added support for new `transcript.jsonl` preview format alongside legacy `overview.txt` logs.
+
 ## [1.6.1] - Multi-Workspace Skill Selection - 2026-06-18
 
 ### 🐛 Bug Fix

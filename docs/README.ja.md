@@ -173,7 +173,7 @@ Edo Tenseiは完全に**ローカルファースト**です。すべての抽出
 - **macOS / Linux**：未対応。現在はWindowsのみサポートしています。
 - **Trae**：未対応。ローカルデータベースがSQLCipher暗号化を使用しており、公開鍵がありません。
 - **Windsurf**：セッションファイルはバイナリ protobuf 形式です。以前のパスのみ fallback は現在無効化されているため、信頼できるパーサーが用意されるまで Windsurf の session はスキャン結果に表示されません。
-- **Antigravity**：`overview.txt`（プレビューログ）から抽出し、各メッセージは約900文字で切り捨てられます。完全な会話履歴はAntigravityのクラウドにのみ保存され、ローカルではアクセスできません。
+- **Antigravity**：`transcript.jsonl` または `overview.txt`（プレビューログ）から抽出し、各メッセージは約900文字で切り捨てられます。完全な会話履歴はAntigravityのクラウドにのみ保存され、ローカルではアクセスできません。
 
 ---
 

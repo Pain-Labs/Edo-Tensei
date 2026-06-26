@@ -76,6 +76,7 @@ Search the target IDE first if the user specified one. Otherwise try in this ord
 ### Claude Code
 
 **Paths**
+
 | OS | Path |
 |---|---|
 | Windows | `%USERPROFILE%\.claude\projects\{slug}\*.jsonl` |
@@ -85,12 +86,14 @@ Slug: workspace absolute path with slashes/colons replaced by `-`
 e.g. `C:\Users\user\myproject` → `c--users-user-myproject`
 
 **Find**
+
 ```powershell
 # Windows
 $slug = (Get-Location).Path -replace '\\','-' -replace ':','-'
 Get-ChildItem "$env:USERPROFILE\.claude\projects\*$slug*\*.jsonl" |
   Sort-Object LastWriteTime -Descending | Select-Object -First 5
 ```
+
 ```bash
 # Linux/macOS
 PROJECT_NAME=$(basename "$PWD")
@@ -104,6 +107,7 @@ ls -lt ~/.claude/projects/*${PROJECT_NAME}*/*.jsonl 2>/dev/null | head -5
 ### Claude.ai Cowork
 
 **Paths**
+
 | OS | Path |
 |---|---|
 | macOS | `~/Library/Application Support/Claude/local-agent-mode-sessions/` |
@@ -115,6 +119,7 @@ Session metadata (title, cwd, timestamps): `{conversation-uuid}/local_{child-uui
 Child sub-sessions (tool/MCP calls): `{conversation-uuid}/local_{child-uuid}/audit.jsonl`
 
 **Find**
+
 ```bash
 # macOS — newest session → newest conversation → main transcript path
 BASE=~/Library/Application\ Support/Claude/local-agent-mode-sessions
@@ -134,12 +139,14 @@ Timestamps on `_audit_timestamp` field. Full details: [session-claude-cowork.md]
 ### GitHub Copilot
 
 **Paths**
+
 | OS | Path |
 |---|---|
 | Windows | `%APPDATA%\Code\User\globalStorage\emptyWindowChatSessions\` |
 | Linux / macOS | `~/.config/Code/User/globalStorage/emptyWindowChatSessions/` |
 
 **Read**: JSON or JSONL. JSONL has two sub-formats:
+
 - **Old**: `kind=0` lines contain full `v.requests[]`; take last per sessionId
 - **New**: `kind=0` has empty `requests`; real data in `kind=2 k="requests"` lines (cumulative append); response patches in `kind=2 k=["requests",N,"response"]` lines
 
@@ -150,6 +157,7 @@ Full details: [session-copilot.md](session-copilot.md)
 ### Cursor
 
 **Paths**
+
 | OS | Path |
 |---|---|
 | Windows | `%USERPROFILE%\.cursor\projects\{slug}\agent-transcripts\{uuid}\{uuid}.jsonl` |
@@ -158,6 +166,7 @@ Full details: [session-copilot.md](session-copilot.md)
 Slug: lowercase drive + single dashes (e.g. `C:\Users\user\MyProject` → `c-Users-user-MyProject`). Each `{uuid}` folder contains exactly one `{uuid}.jsonl` file.
 
 **Find**
+
 ```powershell
 # Windows
 Get-ChildItem "$env:USERPROFILE\.cursor\projects" -Directory |
@@ -173,6 +182,7 @@ Get-ChildItem "$env:USERPROFILE\.cursor\projects" -Directory |
 ### OpenAI Codex CLI
 
 **Paths**
+
 | OS | Path |
 |---|---|
 | Windows | `%USERPROFILE%\.codex\sessions\rollout-*.jsonl` |
@@ -206,12 +216,15 @@ Full details: [session-kiro.md](session-kiro.md)
 ### Antigravity
 
 **Paths**
+
 | OS | Path |
 |---|---|
-| Windows | `%USERPROFILE%\.gemini\antigravity\brain\{uuid}\.system_generated\logs\overview.txt` |
-| Linux / macOS | `~/.gemini/antigravity/brain/{uuid}/.system_generated/logs/overview.txt` |
+| Windows | `%USERPROFILE%\.gemini\antigravity\brain\{uuid}\.system_generated\logs\transcript.jsonl` (or `overview.txt`) |
+| Linux / macOS | `~/.gemini/antigravity/brain/{uuid}/.system_generated/logs/transcript.jsonl` (or `overview.txt`) |
 
 **Read**: JSONL.
+
+- Note: Modern versions save to `transcript.jsonl` while older versions use `overview.txt`. Both use the same JSONL schema.
 - User: `source === "USER"` or `"USER_EXPLICIT"` → `input`/`content`/`text`; unwrap `<USER_REQUEST>...</USER_REQUEST>` if present
 - Assistant: `source === "MODEL"` + `type === "PLANNER_RESPONSE"` → `content`/`text` or `tool_calls[{name:"reply"}].args.content`
 - ⚠️ Content truncated at ~900 chars; full history is cloud-only. Full details: [session-antigravity.md](session-antigravity.md)
@@ -253,6 +266,7 @@ If the Edo Tensei MCP server is connected in your environment, you can use these
 - `export_session` — export session to `.edo_tensei/` as Markdown
 
 To set up the MCP server:
+
 1. Open VS Code Command Palette (Ctrl+Shift+P)
 2. Run: **Edo Tensei: Show MCP Config**
 3. Follow the setup instructions for your AI client

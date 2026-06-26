@@ -751,23 +751,20 @@ export async function activate(context: vscode.ExtensionContext) {
             const picked = await vscode.window.showInformationMessage(message, addToGitignoreLabel);
 
             if (picked === addToGitignoreLabel) {
-                const skillWorkspaceFolder = getExportWorkspaceFolder();
-                if (skillWorkspaceFolder) {
-                    const targetPath = await pickGitignoreTargetPath(skillWorkspaceFolder.uri.fsPath);
-                    if (targetPath) {
-                        const rules = skillPaths.map(p => {
-                            const rel = path.relative(projectRoot, p).replace(/\\/g, '/');
-                            return rel.endsWith('SKILL.md') ? rel.substring(0, rel.lastIndexOf('/') + 1) : rel;
-                        });
-                        await addSkillRulesToGitignore(targetPath, rules);
-                        const open = await vscode.window.showInformationMessage(
-                            I18n.getMessage('skill.gitignoreAdded'),
-                            I18n.getMessage('gitignore.openFile')
-                        );
-                        if (open === I18n.getMessage('gitignore.openFile')) {
-                            const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(targetPath));
-                            await vscode.window.showTextDocument(doc);
-                        }
+                const targetPath = await pickGitignoreTargetPath(projectRoot);
+                if (targetPath) {
+                    const rules = skillPaths.map(p => {
+                        const rel = path.relative(projectRoot, p).replace(/\\/g, '/');
+                        return rel.endsWith('SKILL.md') ? rel.substring(0, rel.lastIndexOf('/') + 1) : rel;
+                    });
+                    await addSkillRulesToGitignore(targetPath, rules);
+                    const open = await vscode.window.showInformationMessage(
+                        I18n.getMessage('skill.gitignoreAdded'),
+                        I18n.getMessage('gitignore.openFile')
+                    );
+                    if (open === I18n.getMessage('gitignore.openFile')) {
+                        const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(targetPath));
+                        await vscode.window.showTextDocument(doc);
                     }
                 }
             }

@@ -58,7 +58,7 @@ AIの使用枠がタスクの途中で切れても、別のIDEに切り替える
 - **ワンクリック転生**：フォーマットされた引き継ぎプロンプトをクリップボードにコピー — 新しいAIチャットに貼り付けるだけでコンテキストを即座に復元。
 - **`.edo_tensei/`へのエクスポート**：引き継ぎプロンプトを`IDE/プロジェクト/タイムスタンプ`で整理されたMarkdownファイルとして保存。
 - **生ファイルプレビュー**：元のセッションファイルをVS Codeで直接開いて閲覧・編集できます。
-- **Agent Skill Generator**：Claude Code、GitHub Copilot、Kiro、Antigravity、Cline、Gemini CLI、Cursor 向けに再利用可能な `edo-tensei` skill/rule ファイルを生成します。
+- **Agent Skill Installer**：**Edo Tensei: Agent Skill をインストール** を実行して公式 `edo-tensei` skill をインストールします。特定 agent 向け skill/rule ファイルを手動で書き出す必要がある場合だけ、**Generate Skill Files Manually** を使います。
 - **Model Context Protocol (MCP)**：内蔵のMCPサーバーにより、AIエージェント（Cursor、Copilot、Claude、Kiro、Antigravity）がプログラムを通じてEdo Tenseiのセッションを検索、読み取り、エクスポートできるようになります。"Show MCP Config" UIを使用すれば、特定のAI向けの構成を簡単に生成できます。
 - **`.gitignore`ヘルパー**：初回使用時に`.edo_tensei/`を`.gitignore`に追加するよう自動的に案内します。
 
@@ -117,7 +117,7 @@ VS Codeの設定で`edoTensei`を検索します。
 | Copy Raw File Path | セッションファイルのパスをクリップボードにコピー |
 | Export Session to .edo_tensei | 引き継ぎプロンプトをMarkdownファイルとして保存 |
 | Export All Sessions to .edo_tensei | 指定したIDEの全セッションを`.edo_tensei/`に保存（IDE行のinlineボタン） |
-| Generate Agent Skill | 他の AI ツール向けに再利用可能な `edo-tensei` skill/rule ファイルを生成 |
+| Agent Skill をインストール | 公式 `edo-tensei` skill をインストールします。特定 agent 向けファイルが必要な場合だけ、コマンド内で **Generate Skill Files Manually** を使います |
 | Show MCP Config | UIパネルを開き、お使いのAIエージェントにコピー＆ペーストできるMCPサーバー構成を取得 |
 
 ---
@@ -141,7 +141,7 @@ MCPサーバーのセットアップ：
 
 ## Agent Skills
 
-**Generate Agent Skill** を使うと、他の AI ツール向けに再利用可能な `edo-tensei` skill または rule を作成できます。生成される内容は単なるメモではなく、引き継ぎ先のエージェントに対して、候補となる session ファイルの探し方、最近で関連性の高い部分だけを読む方法、確信が低いときに停止する基準、そしてクリーンな引き継ぎサマリーの返し方まで示す構造化 SOP です。
+**Edo Tensei: Agent Skill をインストール** を実行し、**Auto Install (Recommended)** を選んで公式 `edo-tensei` skill をインストールします。`npx skills add Pain-Labs/Edo-Tensei` を直接実行することもできます。特定 agent 向け skill/rule ファイルを手動で書き出す必要がある場合だけ、**Generate Skill Files Manually** を選びます。生成される内容は単なるメモではなく、引き継ぎ先のエージェントに対して、候補となる session ファイルの探し方、最近で関連性の高い部分だけを読む方法、確信が低いときに停止する基準、そしてクリーンな引き継ぎサマリーの返し方まで示す構造化 SOP です。
 
 生成先：
 
@@ -173,7 +173,7 @@ Edo Tenseiは完全に**ローカルファースト**です。すべての抽出
 - **macOS / Linux**：未対応。現在はWindowsのみサポートしています。
 - **Trae**：未対応。ローカルデータベースがSQLCipher暗号化を使用しており、公開鍵がありません。
 - **Windsurf**：セッションファイルはバイナリ protobuf 形式です。以前のパスのみ fallback は現在無効化されているため、信頼できるパーサーが用意されるまで Windsurf の session はスキャン結果に表示されません。
-- **Antigravity**：`overview.txt`（プレビューログ）から抽出し、各メッセージは約900文字で切り捨てられます。完全な会話履歴はAntigravityのクラウドにのみ保存され、ローカルではアクセスできません。
+- **Antigravity**：`transcript.jsonl` または `overview.txt`（プレビューログ）から抽出し、各メッセージは約900文字で切り捨てられます。完全な会話履歴はAntigravityのクラウドにのみ保存され、ローカルではアクセスできません。
 
 ---
 

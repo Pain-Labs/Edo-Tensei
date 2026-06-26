@@ -2,7 +2,12 @@ export const workspace = {
   getConfiguration: (_section?: string) => ({
     get: <T>(_key: string, defaultValue: T): T => defaultValue,
   }),
-  workspaceFolders: undefined as Array<{ uri: { fsPath: string } }> | undefined,
+  workspaceFolders: undefined as Array<{ name?: string; uri: { fsPath: string } }> | undefined,
+}
+
+export const window = {
+  showQuickPick: async (_items: unknown, _options?: unknown): Promise<unknown> => undefined,
+  showErrorMessage: async (_message: string): Promise<unknown> => undefined,
 }
 
 export const TreeItemCollapsibleState = {

@@ -4,22 +4,22 @@
 
 | OS | Path |
 |---|---|
-| Windows | `%USERPROFILE%\.gemini\antigravity\brain\{uuid}\.system_generated\logs\overview.txt` |
-| Linux / macOS | `~/.gemini/antigravity/brain/{uuid}/.system_generated/logs/overview.txt` |
+| Windows | `%USERPROFILE%\.gemini\antigravity\brain\{uuid}\.system_generated\logs\transcript.jsonl` (or `overview.txt`) |
+| Linux / macOS | `~/.gemini/antigravity/brain/{uuid}/.system_generated/logs/transcript.jsonl` (or `overview.txt`) |
 
-Each `{uuid}` directory is a separate brain/project. The `overview.txt` is a JSONL preview log.
+Each `{uuid}` directory is a separate brain/project. The log file is `transcript.jsonl` (newer versions) or `overview.txt` (older versions), both are JSONL preview logs.
 
 ## How to Find
 
 ```bash
-# Linux/macOS — find all overview.txt files, newest first
-find ~/.gemini/antigravity/brain -name "overview.txt" 2>/dev/null |
+# Linux/macOS — find all logs, newest first
+find ~/.gemini/antigravity/brain \( -name "transcript.jsonl" -o -name "overview.txt" \) 2>/dev/null |
   xargs ls -t 2>/dev/null | head -5
 ```
 
 ```powershell
 # Windows
-Get-ChildItem "$env:USERPROFILE\.gemini\antigravity\brain\*\.system_generated\logs\overview.txt" |
+Get-ChildItem "$env:USERPROFILE\.gemini\antigravity\brain\*\.system_generated\logs\*" -Include "transcript.jsonl","overview.txt" |
   Sort-Object LastWriteTime -Descending | Select-Object -First 5
 ```
 
@@ -48,6 +48,7 @@ Extract from: `input` field → `content` field → `text` field (try in order)
 Filter: `source === "MODEL"` AND `type === "PLANNER_RESPONSE"` only
 
 Two sub-cases:
+
 1. Direct text: `content` or `text` field
 2. Tool calls (Agent mode): look inside `tool_calls[]` for entries with `name === "reply"`, `"respond"`, `"send_message"`, or `"answer"` → extract `args.content` or `args.message` or `args.text`
 
@@ -61,4 +62,4 @@ Two sub-cases:
 
 ## Known Limitation
 
-Messages longer than ~900 characters are **truncated** with a marker like `<truncated N bytes>`. The complete conversation history is only available in Google Cloud. This overview.txt is a preview log only.
+Messages longer than ~900 characters are **truncated** with a marker like `<truncated N bytes>`. The complete conversation history is only available in Google Cloud. These are preview logs only.

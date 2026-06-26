@@ -27,7 +27,7 @@ Edo Tensei is a VS Code extension that extracts local AI session histories from 
   - Full-text mode: Embeds the complete conversation.
 - One-Click Resurrect: Click any session to copy a ready-to-paste handoff prompt. Right-click for more.
 - MCP Server: Built-in Model Context Protocol server lets AI agents programmatically discover, read, and export sessions.
-- Agent Skill Generator: Generates structured edo-tensei skill/rule files for 7+ AI tools.
+- Agent Skill Installer: Run Edo Tensei: Install Agent Skill to install the canonical edo-tensei skill. Use Generate Skill Files Manually only for agent-specific file output.
 - Export to .edo_tensei/: Saves prompts as Markdown, organized by IDE/project/timestamp.
 - Raw File Preview: Opens original session file in VS Code.
 - .gitignore Helper: Prompts to add .edo_tensei/ to avoid accidental commits.
@@ -49,7 +49,7 @@ Edo Tensei is a VS Code extension that extracts local AI session histories from 
 - Copy Raw File Path: Copy session file path
 - Export Session to .edo_tensei: Save as Markdown file
 - Export All Sessions to .edo_tensei: Save all sessions for the selected IDE
-- Generate Agent Skill: Create reusable edo-tensei skill/rule files for other AI tools
+- Install Agent Skill: Install the canonical edo-tensei skill; use Generate Skill Files Manually only for agent-specific files
 - Show MCP Config: Open UI panel to get copy-paste MCP configuration for your AI client
 
 ## Privacy
@@ -147,7 +147,7 @@ vsce publish
 - Search Engine: Refactored search logic with TimeFilter and PathInference.
 
 ### [1.0.1] - 2026-05-02
-- Agent Skill Generator: Generates structured SOPs for Claude Code, Kiro, Cursor, Cline, Gemini CLI, etc.
+- Agent Skill Installer: Installs the canonical skill for Claude Code, Kiro, Cursor, Cline, Gemini CLI, etc.; manual generation remains available inside the command.
 - Skill-Aware Handoff: Prompts are optimized to use workspace skills when available.
 - UI Improvement: Click session to copy (Resurrect).
 - Packaging: Reduced VSIX bundle size by 70%.

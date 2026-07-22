@@ -33,6 +33,11 @@ jobs:
       - name: Check if version changed
         id: check_version
         run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual dispatch. Forcing publish of $(node -p "require('./package.json').version")."
+            echo "changed=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           # 取得前一個 commit 的版本號
           prev_version=$(git show HEAD~1:package.json | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version" 2>/dev/null || echo "none")
           # 取得目前的版本號
@@ -80,7 +85,7 @@ jobs:
 
       - name: Package extension
         if: steps.check_version.outputs.changed == 'true'
-        run: npx @vscode/vsce package --out edo-tensei.vsix
+        run: npx @vscode/vsce package --out edo-tensei.vsix ${{ steps.release_type.outputs.flags }}
 
 
       - name: Publish to Marketplace

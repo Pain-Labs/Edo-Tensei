@@ -207,6 +207,23 @@ Current thresholds:
 
 Do not expand coverage `include` patterns casually. Add tests for the newly included files in the same PR, otherwise unrelated legacy or UI-heavy code can make the coverage gate noisy without improving release confidence.
 
+### Versioning Convention (Pre-release vs Stable)
+
+Edo-Tensei follows the VS Code Marketplace pre-release convention based on the **minor version number**:
+
+| Minor version | Parity | Published as |
+|:---|:---|:---|
+| 1.6.x, 1.8.x, 2.0.x, … | **Even** | Stable release (default channel) |
+| 1.5.x, 1.7.x, 1.9.x, … | **Odd** | Pre-release (opt-in channel) |
+
+**How CI handles this automatically:**
+
+The `publish.yml` workflow reads the minor version from `package.json` at merge time:
+- Odd minor → publishes with `vsce publish --pre-release`
+- Even minor → publishes normally (stable)
+
+You never need to pass `--pre-release` manually.
+
 ### Version Bumping
 
 Every release-relevant PR must bump `package.json` and `package-lock.json`.

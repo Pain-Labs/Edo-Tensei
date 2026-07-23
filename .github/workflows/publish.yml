@@ -1,5 +1,12 @@
 name: Publish Extension
 
+# Versioning convention:
+#   Odd minor  (e.g. 1.5.0, 1.7.0) → pre-release tier  (published with --pre-release)
+#   Even minor (e.g. 1.6.0, 1.8.0) → stable tier       (published normally)
+#
+# CI reads the minor version from package.json at merge time and sets the flag automatically.
+# You never need to pass --pre-release manually.
+
 # 設定觸發條件：當程式碼 push 到 main 分支，且 package.json 檔案有變動時
 on:
   workflow_dispatch:
@@ -26,6 +33,11 @@ jobs:
       - name: Check if version changed
         id: check_version
         run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual dispatch. Forcing publish of $(node -p "require('./package.json').version")."
+            echo "changed=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           # 取得前一個 commit 的版本號
           prev_version=$(git show HEAD~1:package.json | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version" 2>/dev/null || echo "none")
           # 取得目前的版本號
@@ -37,6 +49,19 @@ jobs:
           else
             echo "Version changed from $prev_version to $curr_version. Proceeding with publish."
             echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Determine release type (pre-release vs stable)
+        if: steps.check_version.outputs.changed == 'true'
+        id: release_type
+        run: |
+          minor=$(node -p "require('./package.json').version.split('.')[1]")
+          if (( minor % 2 == 1 )); then
+            echo "flags=--pre-release" >> $GITHUB_OUTPUT
+            echo "Release type: pre-release (odd minor: $minor)"
+          else
+            echo "flags=" >> $GITHUB_OUTPUT
+            echo "Release type: stable (even minor: $minor)"
           fi
 
       - name: Setup Node.js
@@ -60,14 +85,14 @@ jobs:
 
       - name: Package extension
         if: steps.check_version.outputs.changed == 'true'
-        run: npx @vscode/vsce package --out edo-tensei.vsix
+        run: npx @vscode/vsce package --out edo-tensei.vsix ${{ steps.release_type.outputs.flags }}
 
 
       - name: Publish to Marketplace
         if: steps.check_version.outputs.changed == 'true'
-        run: npx @vscode/vsce publish -p ${{ secrets.VSCE_PAT }} --packagePath edo-tensei.vsix --skip-duplicate
+        run: npx @vscode/vsce publish -p ${{ secrets.VSCE_PAT }} --packagePath edo-tensei.vsix --skip-duplicate ${{ steps.release_type.outputs.flags }}
 
       - name: Publish to Open VSX
         if: steps.check_version.outputs.changed == 'true'
         continue-on-error: true
-        run: npx ovsx publish edo-tensei.vsix -p ${{ secrets.OPEN_VSX_TOKEN }}
+        run: npx ovsx publish edo-tensei.vsix -p ${{ secrets.OPEN_VSX_TOKEN }} ${{ steps.release_type.outputs.flags }}

@@ -23,7 +23,11 @@ type ClaudeJsonlRecord = {
   uuid?: string;
   message?: {
     role?: string;
-    content?: Array<ClaudeContentItem>;
+    // Usually an array of content blocks, but Claude Code emits a plain
+    // string for some records — notably the auto-generated "This session is
+    // being continued from a previous conversation..." summary injected
+    // right after /compact.
+    content?: Array<ClaudeContentItem> | string;
   };
 };
 
@@ -253,7 +257,22 @@ export class ClaudeExtractor implements IChatExtractor {
     if (type !== 'user' && type !== 'assistant') return undefined;
 
     const role: ChatMessage['role'] = type === 'user' ? 'user' : 'assistant';
-    const contentArr = obj.message?.content ?? [];
+    const rawContent = obj.message?.content;
+
+    // Some records (e.g. the auto-generated post-/compact continuation
+    // summary "This session is being continued from a previous
+    // conversation...") carry a plain string instead of a content-block
+    // array. Falling through to the array loop below would silently iterate
+    // individual characters and drop the entire message.
+    if (typeof rawContent === 'string') {
+      let stripped = rawContent.replace(/[<>]/g, '').trim();
+      if (maxItemChars && stripped.length > maxItemChars) {
+        stripped = stripped.slice(0, maxItemChars) + `\n...[truncated ${stripped.length - maxItemChars} chars]`;
+      }
+      return stripped.length > 0 ? { role, content: stripped, timestamp: obj.timestamp } : undefined;
+    }
+
+    const contentArr = rawContent ?? [];
     const textParts: string[] = [];
 
     for (const c of contentArr) {

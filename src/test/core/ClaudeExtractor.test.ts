@@ -120,6 +120,54 @@ describe('ClaudeExtractor.parseClaudeJsonlWithMeta', () => {
     const { messages } = extractor().parseClaudeJsonlWithMeta(raw)
     expect(messages).toHaveLength(0)
   })
+
+  // Regression: Claude Code's /compact injects a system compact_boundary
+  // record followed by a user-role continuation summary whose
+  // message.content is a plain string, not the usual content-block array.
+  // Iterating a string with for...of walks individual characters, which
+  // silently dropped the entire summary (issue #42).
+  it('extracts a message whose content is a plain string (post-compact continuation summary)', () => {
+    const raw = [
+      JSON.stringify({
+        type: 'system',
+        subtype: 'compact_boundary',
+        content: 'Conversation compacted',
+        timestamp: '2026-01-01T00:00:00Z',
+      }),
+      JSON.stringify({
+        type: 'user',
+        timestamp: '2026-01-01T00:00:01Z',
+        message: {
+          role: 'user',
+          content: 'This session is being continued from a previous conversation that ran out of context.',
+        },
+      }),
+    ].join('\n')
+    const { messages } = extractor().parseClaudeJsonlWithMeta(raw)
+    expect(messages).toHaveLength(1)
+    expect(messages[0]).toMatchObject({
+      role: 'user',
+      content: 'This session is being continued from a previous conversation that ran out of context.',
+    })
+  })
+
+  it('strips angle brackets and trims whitespace from string content', () => {
+    const raw = JSON.stringify({
+      type: 'user',
+      message: { role: 'user', content: '  <b>compacted</b> summary  ' },
+    })
+    const { messages } = extractor().parseClaudeJsonlWithMeta(raw)
+    expect(messages[0].content).toBe('bcompacted/b summary')
+  })
+
+  it('skips a record whose string content is empty after trimming', () => {
+    const raw = JSON.stringify({
+      type: 'user',
+      message: { role: 'user', content: '   ' },
+    })
+    const { messages } = extractor().parseClaudeJsonlWithMeta(raw)
+    expect(messages).toHaveLength(0)
+  })
 })
 
 // ── slugToWorkspacePath ───────────────────────────────────────────────────────

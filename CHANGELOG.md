@@ -2,6 +2,12 @@
 
 All notable changes to the "Edo Tensei" extension will be documented in this file.
 
+## [1.7.0] - Claude Compact Summary Fix (pre-release) - 2026-07-23
+
+### 🐛 Bug Fix
+
+- **fix(ClaudeExtractor):** handle `message.content` as a plain string (#55, fixes #42) — Claude Code injects the auto-generated post-`/compact` continuation summary as a plain string rather than the usual content-block array, and the extractor's array-iteration loop was silently dropping it. Every session that had gone through `/compact` lost this bridging summary message.
+
 ## [1.6.2] - Antigravity Multi-Path & JSONL Support - 2026-06-23
 
 ### 🚀 Feature

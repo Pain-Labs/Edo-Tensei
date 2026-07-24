@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { writeFile, mkdtemp, rm } from 'fs/promises'
+import { writeFile, mkdir, mkdtemp, rm } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { CoworkExtractor } from '../../core/extractors/CoworkExtractor'
@@ -294,6 +294,64 @@ describe('CoworkExtractor file-based', () => {
       await writeFile(file, 'not valid json {{')
       const meta = await ext().readChildMeta(file)
       expect(meta).toEqual({})
+    })
+  })
+
+  // ── getWindowsMsixScanPaths ───────────────────────────────────────────────────
+  // Regression: Claude Desktop installed via the Microsoft Store (MSIX/AppX)
+  // runs in an AppContainer, so Windows redirects its "%APPDATA%" writes into
+  // an isolated per-package sandbox instead of the real %APPDATA%\Claude.
+  // process.env.APPDATA alone never resolves to real session data in that
+  // case — confirmed against a real Windows install with a live Cowork
+  // session that CoworkExtractor was otherwise unable to find.
+  describe('getWindowsMsixScanPaths', () => {
+    let localAppData: string
+    let origLocalAppData: string | undefined
+
+    beforeEach(async () => {
+      localAppData = await mkdtemp(join(tmpdir(), 'edotensei-msix-'))
+      origLocalAppData = process.env.LOCALAPPDATA
+      process.env.LOCALAPPDATA = localAppData
+    })
+
+    afterEach(async () => {
+      process.env.LOCALAPPDATA = origLocalAppData
+      await rm(localAppData, { recursive: true, force: true })
+    })
+
+    it('finds local-agent-mode-sessions under a Claude_<publisherId> MSIX package', async () => {
+      const sessionsDir = join(localAppData, 'Packages', 'Claude_pzs8sxrjxfjjc', 'LocalCache', 'Roaming', 'Claude', 'local-agent-mode-sessions')
+      await mkdir(sessionsDir, { recursive: true })
+
+      const paths = ext().getWindowsMsixScanPaths()
+      expect(paths).toContain(sessionsDir)
+    })
+
+    it('ignores unrelated packages and unrelated Claude-prefixed packages without a hyphen boundary', async () => {
+      await mkdir(join(localAppData, 'Packages', 'Microsoft.WindowsTerminal_abc'), { recursive: true })
+      await mkdir(join(localAppData, 'Packages', 'Claude-3p'), { recursive: true })
+
+      const paths = ext().getWindowsMsixScanPaths()
+      expect(paths).toEqual([])
+    })
+
+    it('skips a Claude package that has no local-agent-mode-sessions data', async () => {
+      await mkdir(join(localAppData, 'Packages', 'Claude_pzs8sxrjxfjjc', 'LocalCache'), { recursive: true })
+
+      const paths = ext().getWindowsMsixScanPaths()
+      expect(paths).toEqual([])
+    })
+
+    it('returns an empty array when the Packages directory does not exist', async () => {
+      await rm(join(localAppData, 'Packages'), { recursive: true, force: true })
+      const paths = ext().getWindowsMsixScanPaths()
+      expect(paths).toEqual([])
+    })
+
+    it('returns an empty array when LOCALAPPDATA is not set', () => {
+      delete process.env.LOCALAPPDATA
+      const paths = ext().getWindowsMsixScanPaths()
+      expect(paths).toEqual([])
     })
   })
 })

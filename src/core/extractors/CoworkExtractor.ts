@@ -65,7 +65,7 @@ export class CoworkExtractor implements IChatExtractor {
     let defaults: string[];
     if (platform === 'win32') {
       const appData = process.env.APPDATA ?? '';
-      defaults = [path.join(appData, 'Claude', 'local-agent-mode-sessions')];
+      defaults = [path.join(appData, 'Claude', 'local-agent-mode-sessions'), ...this.getWindowsMsixScanPaths()];
     } else if (platform === 'darwin') {
       defaults = [path.join(home, 'Library', 'Application Support', 'Claude', 'local-agent-mode-sessions')];
     } else {
@@ -83,6 +83,40 @@ export class CoworkExtractor implements IChatExtractor {
     }
 
     return defaults;
+  }
+
+  /**
+   * Claude Desktop installed via the Microsoft Store (MSIX/AppX) runs inside
+   * an AppContainer, so Windows redirects its "%APPDATA%" writes into an
+   * isolated per-package sandbox instead of the real %APPDATA%\Claude — a
+   * normal external process reading process.env.APPDATA never sees this
+   * path, even though the real session data (audit.jsonl, etc.) is there.
+   * Actual observed layout:
+   *   %LOCALAPPDATA%\Packages\Claude_<publisherId>\LocalCache\Roaming\Claude\local-agent-mode-sessions
+   */
+  private getWindowsMsixScanPaths(): string[] {
+    const localAppData = process.env.LOCALAPPDATA ?? '';
+    if (!localAppData) return [];
+
+    const packagesDir = path.join(localAppData, 'Packages');
+    let entries: string[];
+    try {
+      entries = fsSync.readdirSync(packagesDir);
+    } catch {
+      return [];
+    }
+
+    const found: string[] = [];
+    for (const entry of entries) {
+      if (!/^claude(_|$)/i.test(entry)) continue;
+      const candidate = path.join(packagesDir, entry, 'LocalCache', 'Roaming', 'Claude', 'local-agent-mode-sessions');
+      try {
+        if (fsSync.statSync(candidate).isDirectory()) found.push(candidate);
+      } catch {
+        // package present but no matching data directory — skip
+      }
+    }
+    return found;
   }
 
   private isLazyEnabled(): boolean {

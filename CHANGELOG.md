@@ -2,6 +2,12 @@
 
 All notable changes to the "Edo Tensei" extension will be documented in this file.
 
+## [1.7.1] - Cowork MSIX Scan Path Fix (pre-release) - 2026-07-24
+
+### 🐛 Bug Fix
+
+- **fix(CoworkExtractor):** scan MSIX-packaged Claude Desktop's redirected AppData on Windows (#59) — Claude Desktop installed via the Microsoft Store runs in an AppContainer, so Windows redirects its `%APPDATA%` writes to `%LOCALAPPDATA%\Packages\Claude_<publisherId>\LocalCache\Roaming\Claude\...` instead of the real `%APPDATA%\Claude`. `CoworkExtractor` only checked the latter, so Cowork sessions were invisible on any MSIX install even with real data present.
+
 ## [1.7.0] - Claude Compact Summary Fix (pre-release) - 2026-07-23
 
 ### 🐛 Bug Fix

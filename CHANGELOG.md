@@ -2,6 +2,12 @@
 
 All notable changes to the "Edo Tensei" extension will be documented in this file.
 
+## [1.7.2] - Maintenance (pre-release) - 2026-07-26
+
+### 🔧 Maintenance
+
+- **chore(deps):** bump the `npm_and_yarn` dependency group across 1 directory with 3 updates (#58)
+
 ## [1.7.1] - Cowork MSIX Scan Path Fix (pre-release) - 2026-07-24
 
 ### 🐛 Bug Fix

@@ -31,5 +31,5 @@
     "command.searchSessions.title": "搜索 Sessions",
     "command.searchIde.title": "搜索此 IDE 的 Sessions",
     "command.loadMoreSessions.title": "加载更多 Sessions",
-    "config.maxSessionsPerIde.description": "每个 IDE 最多显示的 session 数量。超出时会显示"加载更多"按钮。若想一次看到更多 session 可提高此值（可能会使扫描变慢）。"
+    "config.maxSessionsPerIde.description": "每个 IDE 最多显示的 session 数量。超出时会显示「加载更多」按钮。若想一次看到更多 session 可提高此值（可能会使扫描变慢）。"
 }

@@ -54,8 +54,10 @@ export class TimeFilter {
   }
 
   private static parseDate(input: string): Date | undefined {
-    const normalized = input.replace(/\//g, '-');
-    const d = new Date(`${normalized}T00:00:00`);
+    const match = input.replace(/\//g, '-').match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (!match) return undefined;
+    const [, year, month, day] = match;
+    const d = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00`);
     return Number.isNaN(d.getTime()) ? undefined : d;
   }
 

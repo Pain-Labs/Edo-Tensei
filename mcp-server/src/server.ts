@@ -295,7 +295,7 @@ export class EdoTenseiMCPServer {
           break;
 
         case 'get_mcp_config':
-          result = this.generateMcpConfig(args.client);
+          result = this.generateMcpConfig(args?.client);
           break;
 
         default:

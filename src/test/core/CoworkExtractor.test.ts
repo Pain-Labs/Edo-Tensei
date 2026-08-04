@@ -86,6 +86,14 @@ describe('CoworkExtractor.recordToMessage', () => {
     expect(ext().recordToMessage({ type: 'assistant', message: { content: [] } })).toBeUndefined()
   })
 
+  it('skips null/undefined entries in a malformed content array instead of throwing', () => {
+    const msg = ext().recordToMessage({
+      type: 'assistant',
+      message: { role: 'assistant', content: [null, { type: 'text', text: 'Visible reply' }, undefined] },
+    })
+    expect(msg?.content).toBe('Visible reply')
+  })
+
   it('forwards _audit_timestamp as message timestamp', () => {
     const msg = ext().recordToMessage({
       type: 'user',

@@ -36,6 +36,21 @@ export class McpConfigPanel {
         });
 
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
+
+        this.panel.webview.onDidReceiveMessage(
+            async (message: any) => {
+                if (message?.command === 'copyToClipboard' && typeof message.text === 'string') {
+                    await vscode.env.clipboard.writeText(message.text);
+                    return;
+                }
+                if (message?.command === 'openSettings') {
+                    await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:Pain-Labs.edo-tensei');
+                    return;
+                }
+            },
+            null,
+            this.disposables
+        );
     }
 
     public static async show(context: vscode.ExtensionContext): Promise<void> {
@@ -193,21 +208,6 @@ export class McpConfigPanel {
             { key: 'get_mcp_config', description: 'Get client-specific config' },
           ],
         });
-
-        this.panel.webview.onDidReceiveMessage(
-            async (message: any) => {
-                if (message?.command === 'copyToClipboard' && typeof message.text === 'string') {
-                    await vscode.env.clipboard.writeText(message.text);
-                    return;
-                }
-                if (message?.command === 'openSettings') {
-                    await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:Pain-Labs.edo-tensei');
-                    return;
-                }
-            },
-            null,
-            this.disposables
-        );
     }
 
     private getHtml(data: {

@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, beforeEach, afterEach } from 'vitest'
+import { writeFile, mkdtemp, rm } from 'fs/promises'
+import { join } from 'path'
+import { tmpdir } from 'os'
 import { CursorExtractor } from '../../core/extractors/CursorExtractor'
 
 function extractor() {
@@ -67,5 +70,51 @@ describe('CursorExtractor parsing (parseJsonlFull-equivalent logic)', () => {
       .join('\n')
       .trim()
     expect(text).toBe('part one\npart two')
+  })
+})
+
+// ── Malformed content regression (prescanFirstUserMessage / parseJsonlFull) ────
+// Regression: message.content is typed as an array, but a corrupted/truncated
+// write could carry a non-array value or an array with null entries. Calling
+// .filter on either previously threw, which was swallowed by the per-line
+// catch and silently dropped the whole message.
+
+describe('CursorExtractor file-based parsing of malformed content', () => {
+  let tmpDir: string
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), 'cursor-test-'))
+  })
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true })
+  })
+
+  it('parseJsonlFull skips a record whose content is a bare string instead of throwing', async () => {
+    const file = join(tmpDir, 'chat.jsonl')
+    const malformed = JSON.stringify({ role: 'user', message: { content: 'not an array' } })
+    await writeFile(file, [malformed, line('assistant', 'still parsed')].join('\n'))
+
+    const messages = await extractor().parseJsonlFull(file)
+    expect(messages).toHaveLength(1)
+    expect(messages[0]).toMatchObject({ role: 'assistant', content: 'still parsed' })
+  })
+
+  it('parseJsonlFull skips a null entry within content array instead of throwing', async () => {
+    const file = join(tmpDir, 'chat.jsonl')
+    const malformed = JSON.stringify({ role: 'user', message: { content: [null, { type: 'text', text: 'hello' }] } })
+    await writeFile(file, malformed)
+
+    const messages = await extractor().parseJsonlFull(file)
+    expect(messages).toHaveLength(1)
+    expect(messages[0]).toMatchObject({ role: 'user', content: 'hello' })
+  })
+
+  it('prescanFirstUserMessage skips a bare-string content record and finds the next valid user message', async () => {
+    const file = join(tmpDir, 'chat.jsonl')
+    const malformed = JSON.stringify({ role: 'user', message: { content: 'not an array' } })
+    await writeFile(file, [malformed, line('user', 'the real first message')].join('\n'))
+
+    const result = await extractor().prescanFirstUserMessage(file)
+    expect(result).toMatchObject({ role: 'user', content: 'the real first message' })
   })
 })

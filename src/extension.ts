@@ -552,7 +552,10 @@ export async function activate(context: vscode.ExtensionContext) {
                     quickPick.items = matches.map(m => toSearchItem(m, value));
                 }
             });
-            quickPick.onDidHide(() => updateSub.dispose());
+            quickPick.onDidHide(() => {
+                updateSub.dispose();
+                quickPick.dispose();
+            });
 
             quickPick.show();
         })
@@ -835,6 +838,8 @@ export async function activate(context: vscode.ExtensionContext) {
                     vscode.commands.executeCommand('edoTensei.viewParsedSession', new SessionItem(selected.session));
                 }
             });
+
+            quickPick.onDidHide(() => quickPick.dispose());
 
             quickPick.show();
         })

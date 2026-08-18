@@ -36,7 +36,7 @@ export class I18n {
     public static getMessage(key: string, ...args: string[]): string {
         let message = this.messages[key] || key;
         for (let i = 0; i < args.length; i++) {
-            message = message.replace(new RegExp(`\\{${i}\\}`, 'g'), args[i]);
+            message = message.replace(new RegExp(`\\{${i}\\}`, 'g'), () => args[i]);
         }
         return message;
     }

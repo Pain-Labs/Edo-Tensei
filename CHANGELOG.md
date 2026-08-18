@@ -2,6 +2,14 @@
 
 All notable changes to the "Edo Tensei" extension will be documented in this file.
 
+## [1.8.0] - Stable Release: Claude Compact Summary, Cowork MSIX Scan Path & Maintenance - 2026-08-19
+
+Promotes the [1.7.0]–[1.7.2] pre-release content to stable unchanged — no new code in this release.
+
+- **fix(ClaudeExtractor):** handle `message.content` as a plain string (#55, fixes #42)
+- **fix(CoworkExtractor):** scan MSIX-packaged Claude Desktop's redirected AppData on Windows (#59)
+- **chore(deps):** bump the `npm_and_yarn` dependency group across 1 directory with 3 updates (#58)
+
 ## [1.7.2] - Maintenance (pre-release) - 2026-07-26
 
 ### 🔧 Maintenance

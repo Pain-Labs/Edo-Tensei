@@ -519,7 +519,10 @@ export class SessionTools {
   }
 
   private parseDate(input: string): Date | undefined {
-    const date = new Date(`${input.replace(/\//g, '-')}T00:00:00`);
+    const match = input.replace(/\//g, '-').match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (!match) return undefined;
+    const [, year, month, day] = match;
+    const date = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00`);
     return Number.isNaN(date.getTime()) ? undefined : date;
   }
 

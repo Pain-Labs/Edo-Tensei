@@ -168,6 +168,24 @@ describe('ClaudeExtractor.parseClaudeJsonlWithMeta', () => {
     const { messages } = extractor().parseClaudeJsonlWithMeta(raw)
     expect(messages).toHaveLength(0)
   })
+
+  // Regression: message.content is typed as `Array<ClaudeContentItem> | string`,
+  // but a corrupted/truncated write could carry a bare object or number instead.
+  // `for...of` over a non-iterable throws, which previously crashed the whole
+  // parse loop instead of just skipping the one malformed record.
+  it('skips a record whose content is a non-iterable object without throwing', () => {
+    const raw = [
+      JSON.stringify({
+        type: 'user',
+        message: { role: 'user', content: { note: 'malformed' } },
+      }),
+      userLine(['still parsed']),
+    ].join('\n')
+    expect(() => extractor().parseClaudeJsonlWithMeta(raw)).not.toThrow()
+    const { messages } = extractor().parseClaudeJsonlWithMeta(raw)
+    expect(messages).toHaveLength(1)
+    expect(messages[0].content).toBe('still parsed')
+  })
 })
 
 // ── slugToWorkspacePath ───────────────────────────────────────────────────────

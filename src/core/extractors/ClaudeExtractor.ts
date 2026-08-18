@@ -272,7 +272,10 @@ export class ClaudeExtractor implements IChatExtractor {
       return stripped.length > 0 ? { role, content: stripped, timestamp: obj.timestamp } : undefined;
     }
 
-    const contentArr = rawContent ?? [];
+    // A non-string, non-array content field (e.g. a bare object or number
+    // from a corrupted/truncated write) is not iterable — fall back to an
+    // empty array instead of throwing and losing the rest of the file.
+    const contentArr = Array.isArray(rawContent) ? rawContent : [];
     const textParts: string[] = [];
 
     for (const c of contentArr) {

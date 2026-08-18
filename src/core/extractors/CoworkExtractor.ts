@@ -335,6 +335,7 @@ export class CoworkExtractor implements IChatExtractor {
     } else if (Array.isArray(content)) {
       const parts: string[] = [];
       for (const block of content) {
+        if (!block) continue;
         // Include only visible text blocks — skip thinking (internal reasoning)
         if (block.type === 'text' && typeof (block as { text?: string }).text === 'string') {
           parts.push(((block as { text: string }).text).trim());

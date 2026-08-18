@@ -56,6 +56,18 @@ describe('TimeFilter', () => {
     })
 
     expect(TimeFilter.parse('2026-99-01 to 2026-05-03')).toBeUndefined()
+
+    expect(TimeFilter.parse('2026-5-1')).toEqual({
+      from: new Date('2026-05-01T00:00:00'),
+      to: new Date('2026-05-01T23:59:59.999'),
+      label: '2026-5-1',
+    })
+
+    expect(TimeFilter.parse('2026/5/1 to 2026/5/3')).toEqual({
+      from: new Date('2026-05-01T00:00:00'),
+      to: new Date('2026-05-03T23:59:59.999'),
+      label: '2026/5/1 to 2026/5/3',
+    })
   })
 
   it('checks whether ISO timestamps are inside parsed ranges', () => {

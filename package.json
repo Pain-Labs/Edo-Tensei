@@ -321,6 +321,7 @@
   "scripts": {
     "test": "vitest run",
     "test:unit": "vitest run src/test/core src/test/copilot src/test/security src/test/ui src/test/config",
+    "test:mcp-server": "vitest run --config mcp-server/vitest.config.ts",
     "test:ui:setup": "extest setup-tests -c 1.96.0",
     "test:ui": "tsc -p tsconfig.test.ui.json && node -e \"const fs=require('fs');const p=require('path').join(require('os').tmpdir(),'test-resources','settings');if(fs.existsSync(p))fs.rmSync(p,{recursive:true,force:true})\" && extest setup-and-run \"out/test/ui/**/*.ui.test.js\" -e \".vscode-test/extensions\" -c 1.96.0",
     "test:ui:demo": "node src/test/ui/write-demo-settings.cjs && tsc -p tsconfig.test.ui.json && node -e \"const fs=require('fs');const p=require('path').join(require('os').tmpdir(),'test-resources','settings');if(fs.existsSync(p))fs.rmSync(p,{recursive:true,force:true})\" && extest setup-and-run \"out/test/ui/**/*.visual.js\" -e \".vscode-test/extensions\" -c 1.96.0 -o \"test-results/demo-code-settings.generated.json\"",

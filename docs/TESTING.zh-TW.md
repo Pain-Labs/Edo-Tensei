@@ -17,20 +17,22 @@
 | UI / E2E 測試 | `npm run test:ui` | 使用真實的 VS Code（釘選在 `1.96.0`）＋ Selenium（`vscode-extension-tester`）端到端驅動已封裝的擴充功能。透過 `tsconfig.test.ui.json` 編譯 `src/test/ui/**/*.ts`，再執行 `extest setup-and-run "out/test/ui/**/*.ui.test.js"` |
 | 僅設定 UI 測試環境 | `npm run test:ui:setup` | `extest setup-tests -c 1.96.0` — 下載／準備 VS Code + ChromeDriver 配對，但不執行任何測試 |
 | UI 展示／錄製執行 | `npm run test:ui:demo` | 寫入展示用設定（`write-demo-settings.cjs`），編譯與上面相同的 `tsconfig.test.ui.json` 原始檔，接著只執行 `*.visual.js` 檔案（目前是 `sidebar-demo.visual.ts`），並將 JSON 報告寫入 `test-results/demo-code-settings.generated.json`。這是用來產生展示畫面的錄製走查，不是正確性測試 — 詳見下方該檔案自身的說明 |
+| mcp-server 單元測試 | `npm run test:mcp-server` | `vitest run --config mcp-server/vitest.config.ts` — 一份獨立的 Vitest 設定，範圍限定在 `mcp-server/src/test/**`，因為 `mcp-server` 不在根目錄設定檔的 `include` 範圍內，也不需要根目錄的 `vscode` mock alias（它是一個純 Node 行程，不是 extension-host 程式碼） |
 
 **UI 測試需要一個真實、可見的 VS Code 視窗，且會花費數分鐘。**
 這些測試應該由人類在自己的機器上執行，而不是由沙盒環境中的 AI agent 執行 — 透過合成的 Selenium
 輸入驅動真實的 Electron 應用程式，已知存在時序敏感性問題（見下方「已知限制」）。
 
-本 repo 沒有獨立的 `mcp-server` 測試套件。`mcp-server/` 是以套件形式存在
-（`mcp-server/package.json`、`mcp-server/src/`），但目前沒有任何測試檔案 — 它的
-`package.json` 只定義了 `build`、`watch`、`start`、`dev`、`clean` 腳本，沒有 `test` 腳本。
+`mcp-server` 的測試套件刻意保持精簡 — 只有兩個檔案，涵蓋兩個特定的修正（見下方
+「mcp-server 單元測試」），並非該套件的完整覆蓋範圍。它與 `npm test`／`npm run test:unit`
+（只掃描根目錄 `src/test/**`）分開執行，透過自己的 `vitest.config.ts` 與 `test:mcp-server`
+腳本。
 
 ## 檔案數量與配置
 
-本 repo 的測試配置與其他 Pain-Labs/QuickPrompt 家族專案不同：它使用的是 **Vitest**，不是 Jest，
-而且完全沒有 `mcp-server/src/test/` 目錄（不像 PromptManager 的 `mcp-server` 套件那樣擁有自己的
-Jest 套件）。所有 18 個與測試相關的檔案都位於 `src/test/` 底下：
+本 repo 的測試配置與其他 Pain-Labs/QuickPrompt 家族專案不同：根目錄套件與 `mcp-server` 套件
+兩者都使用 **Vitest**，不是 Jest（PromptManager 的 `mcp-server` 套件則是用獨立的 Jest 設定）。
+所有 18 個與測試相關的檔案都位於 `src/test/` 底下，另外還有 2 個位於 `mcp-server/src/test/`：
 
 - **16 個檔案**是由 Vitest 執行的一般 `*.test.ts` 單元測試（`src/test/config/`、`src/test/copilot/`、`src/test/core/`、`src/test/security/`，以及 `src/test/ui/` 中的一個）。
 - **1 個檔案**是真正的 `*.ui.test.ts` E2E 套件（`src/test/ui/sidebar.ui.test.ts`），只透過 `extest`/`test:ui` 執行，Vitest 完全不會執行它（被 `vitest.config.ts` 的 `exclude: ['src/test/**/*.ui.test.ts']` 排除）。
@@ -65,6 +67,33 @@ Jest 套件）。所有 18 個與測試相關的檔案都位於 `src/test/` 底�
 | `src/test/core/TimeFilter.test.ts` | `TimeFilter`：解析「today」/「yesterday」/「this week」標籤、最近幾天的時間範圍、單一日期與明確的時間區間、空白／不支援輸入時回傳 undefined，以及檢查 ISO 時間戳記是否落在解析出的範圍內 |
 | `src/test/security/AngleBracketSanitization.test.ts` | 篇幅最大的測試檔案，一個 `describe('angle bracket sanitization', ...)` 區塊涵蓋了**多個**（不只一個）extractor 的角括號／標籤移除：Cursor 的 `<user_query>` 包裝、樹狀標題擷取不會重組出標籤、Claude 的角括號內容移除（與 `maxItemChars` 截斷的交互作用），以及一大段以 Codex 為主的內容 — 過濾注入的 scaffolding／權限區塊、對注入訊息的角色／前綴判斷、解析 Codex rollout 紀錄（略過格式錯誤／注入的項目）、將非 user/非 assistant 的紀錄對應到系統訊息、以 workspace 過濾與空結果退回機制擷取 rollout 檔案、處理檔案系統失敗、忽略不符檔名與符號連結項目，以及遵守設定的遞迴深度限制 |
 | `src/test/ui/SessionHandoffProvider.test.ts` | 一個一般的 Vitest 單元測試（儘管位於 `src/test/ui/` — 見上方「檔案數量與配置」），涵蓋 `SessionItem` 提示框（tooltip）的建構（`MarkdownString`、粗體標題、專案／路徑行、精確 vs. 延遲載入／估計的訊息數量、home 圖示 vs. 留言討論圖示、描述格式化）、`SessionHandoffProvider.resolveTreeItem`（延遲載入訊息後更新提示框），以及 `SessionHandoffProvider.getChildren`（每個 IDE 的根項目、掃描狀態描述、首次展開時的 `LoadingItem`／觸發掃描、掃描後的 `SessionItem` 結果、home 圖示與已開啟的 workspace 資料夾比對，以及 `LoadMoreItem` 分頁） |
+
+## mcp-server 單元測試（`mcp-server/src/test/`）
+
+| 檔案 | 涵蓋內容 |
+| --- | --- |
+| `server.test.ts` | 當 MCP client 完全省略（選填的）`arguments` 物件時，`get_mcp_config` 不會崩潰 — 這個處理常式先前會在沒有 null 檢查的情況下直接存取 `args.client` |
+| `sessionTools.test.ts` | `SessionTools` 私有的 `parseTimeExpression`/`parseDate`：單位數月/日的日期（例如 `2026-8-1`）在單一日期與日期區間兩種情況下都能正確解析、補零日期仍然正常運作，且格式錯誤的輸入仍會回傳 `undefined` |
+
+這兩個測試都是透過 `(instance as any).methodName(...)` 直接存取私有方法，而不是透過
+`SessionTools` 的公開介面（例如 `searchSessions`）來測試，因為公開方法會牽動檔案系統的
+session 掃描，這與這裡要測試的內容無關，且要碰到同一段程式碼路徑需要額外、不相干的 mock。
+
+### 已調查但未撰寫測試
+
+- **`McpConfigPanel` 中重複的 webview 訊息監聽器** — 它處理的兩種訊息類型
+  （`copyToClipboard`、`openSettings`）都是冪等的：不管訊息被重複註冊的監聽器處理一次還是
+  兩次，VS Code 最終呈現的可觀察狀態（剪貼簿內容、設定頁是否已開啟）完全相同。沒有任何
+  UI 可觀察的副作用能區分「已修正」與「仍有問題」，所以不管是單元測試（需要從零打造
+  `createWebviewPanel` 的 mock）還是 E2E 測試（沒有東西可以斷言），都無法真的驗證這個修正。
+- **hide 時 `QuickPick` 未 dispose**（`src/extension.ts`）— 兩處修正都直接寫在
+  `vscode.commands.registerCommand(...)` 的 callback 內，沒有被抽成可獨立 import 的函式，
+  而且要測試的對象是一個原生 VS Code UI handle 是否被 dispose，這在標準測試框架下並不
+  可觀察。若不對 production code 重構、把 QuickPick 邏輯抽出來，要測試這個就需要為了一個
+  一行的 dispose-on-hide 修正打造大量新的 `createQuickPick` mock。
+
+這兩個修正是透過閱讀 diff、手動推理程式碼路徑來審查的，而不是透過自動化測試 — 詳見
+PR #70（webview 監聽器）與 PR #74（QuickPick dispose）的歷史紀錄。
 
 ## UI / E2E 測試（`src/test/ui/*.ui.test.ts`）
 
@@ -108,8 +137,9 @@ VS Code 使用者設定，因此共用快取的慣例依然成立。
 
 ## 已知限制
 
-- **沒有專屬的 `mcp-server` 測試套件。** 不同於 PromptManager（其 `mcp-server` 套件有自己的
-  Jest 設定與測試），本 repo 的 `mcp-server/` 套件目前沒有任何測試，也沒有 `test` 腳本。
+- **`mcp-server` 的測試套件很精簡（2 個檔案、6 個測試），並非完整覆蓋。** 它剛好只涵蓋
+  最初促成幫這個套件補上測試基礎設施的那兩個修正 — `mcp-server/` 的其他大部分內容
+  （session 掃描、handoff prompt 產生、resource/prompt 處理常式）目前都還沒有測試覆蓋。
 - **UI 測試天生比單元測試更慢、更容易不穩定（flaky）**，原因與其他同系列專案文件中記載的相同 —
   它們透過合成的 Selenium 輸入來驅動真實的 Electron 應用程式。目前只有一個 `.ui.test.ts` 檔案
   存在，所以這個風險面很小，但仍應把任何 UI 測試失敗視為需要調查的訊號，而不是自動當作真正的

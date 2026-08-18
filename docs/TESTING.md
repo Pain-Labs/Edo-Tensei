@@ -19,23 +19,26 @@ If you add, rename, or remove a test file, update this doc in the same PR.
 | UI / E2E tests | `npm run test:ui` | Real VS Code (pinned to `1.96.0`) + Selenium (`vscode-extension-tester`) driving the packaged extension end to end. Compiles `src/test/ui/**/*.ts` via `tsconfig.test.ui.json`, then runs `extest setup-and-run "out/test/ui/**/*.ui.test.js"` |
 | UI test env setup only | `npm run test:ui:setup` | `extest setup-tests -c 1.96.0` — downloads/prepares the VS Code + ChromeDriver pair without running any tests |
 | UI demo/recording run | `npm run test:ui:demo` | Writes demo settings (`write-demo-settings.cjs`), compiles the same `tsconfig.test.ui.json` sources, then runs only `*.visual.js` files (currently `sidebar-demo.visual.ts`) and writes a JSON report to `test-results/demo-code-settings.generated.json`. This is a recorded walkthrough for producing demo footage, not a correctness test — see the file's own description below |
+| mcp-server unit tests | `npm run test:mcp-server` | `vitest run --config mcp-server/vitest.config.ts` — a separate Vitest config scoped to `mcp-server/src/test/**`, since `mcp-server` isn't included in the root config's `include` pattern and doesn't need the root's `vscode` mock alias (it's a plain Node process, not extension-host code) |
 
 **UI tests require a real, visible VS Code window and take several minutes.**
 They should be run by a human on their own machine, not by an AI agent in a
 sandboxed environment — driving a real Electron app via synthetic Selenium
 input has known timing sensitivities (see "Known limitations" below).
 
-There is no separate `mcp-server` test suite in this repo. `mcp-server/`
-exists as a package (`mcp-server/package.json`, `mcp-server/src/`) but
-currently has zero test files — its `package.json` only defines `build`,
-`watch`, `start`, `dev`, `clean` scripts, no `test` script.
+`mcp-server`'s test suite is intentionally small — two files covering two
+specific fixes (see "mcp-server unit tests" below), not comprehensive
+coverage of the whole package. It is run separately from `npm test`/`npm run
+test:unit` (which only look under the root `src/test/**`), via its own
+`vitest.config.ts` and the `test:mcp-server` script.
 
 ## File count and layout
 
 This repo's test layout differs from other Pain-Labs/QuickPrompt-family
-projects: it uses **Vitest**, not Jest, and there is no `mcp-server/src/test/`
-directory at all (unlike PromptManager's `mcp-server` package, which does have
-its own Jest suite). All 18 test-related files live under `src/test/`:
+projects: it uses **Vitest**, not Jest, for both the root suite and
+`mcp-server`'s suite (PromptManager's `mcp-server` package uses a separate
+Jest config instead). All 18 test-related files live under `src/test/`, plus
+2 more under `mcp-server/src/test/`:
 
 - **16 files** are plain `*.test.ts` unit tests run by Vitest (`src/test/config/`, `src/test/copilot/`, `src/test/core/`, `src/test/security/`, and one in `src/test/ui/`).
 - **1 file** is the real `*.ui.test.ts` E2E suite (`src/test/ui/sidebar.ui.test.ts`), run only via `extest`/`test:ui`, never by Vitest (excluded by `vitest.config.ts`'s `exclude: ['src/test/**/*.ui.test.ts']`).
@@ -71,6 +74,41 @@ counted in the "18":
 | `src/test/core/TimeFilter.test.ts` | `TimeFilter`: parsing "today"/"yesterday"/"this week" labels, recent-day windows, single dates and explicit ranges, undefined for empty/unsupported input, and checking whether ISO timestamps fall inside a parsed range |
 | `src/test/security/AngleBracketSanitization.test.ts` | The largest test file, one `describe('angle bracket sanitization', ...)` block covering angle-bracket/tag stripping across **multiple** extractors, not just one: Cursor's `<user_query>` wrapper, tree-title extraction not reconstructing tags, Claude's angle-bracket content stripping (with `maxItemChars` truncation interaction), and a large Codex-focused section — filtering injected scaffolding/permissions blocks, role/prefix decisions for injected messages, parsing Codex rollout records (skipping malformed/injected entries), mapping non-user/non-assistant records to system messages, extracting rollout files with workspace filtering and empty fallback, filesystem-failure handling, ignoring non-matching filenames and symlinked entries, and respecting a configured recursion depth limit |
 | `src/test/ui/SessionHandoffProvider.test.ts` | A plain Vitest unit test (despite living in `src/test/ui/` — see "File count and layout" above) covering `SessionItem` tooltip construction (`MarkdownString`, bold title, project/path lines, exact vs. lazy/estimated message counts, home vs. comment-discussion icons, description formatting), `SessionHandoffProvider.resolveTreeItem` (tooltip updates after lazy message load), and `SessionHandoffProvider.getChildren` (per-IDE root items, scan-state descriptions, `LoadingItem`/scan-triggering on first expand, `SessionItem` results after scan, home-icon matching against the open workspace folder, and `LoadMoreItem` pagination) |
+
+## mcp-server unit tests (`mcp-server/src/test/`)
+
+| File | Covers |
+| --- | --- |
+| `server.test.ts` | `get_mcp_config` doesn't crash when the MCP client omits the (optional) `arguments` object entirely — the handler previously accessed `args.client` with no null check |
+| `sessionTools.test.ts` | `SessionTools`'s private `parseTimeExpression`/`parseDate`: single-digit month/day dates (e.g. `2026-8-1`) parse correctly on both single dates and ranges, zero-padded dates still work, and malformed input still returns `undefined` |
+
+Both tests reach into private methods via `(instance as any).methodName(...)`
+rather than testing through `SessionTools`'s public surface (e.g.
+`searchSessions`), since the public methods pull in filesystem session
+scanning that isn't relevant to what's being tested here and would need
+unrelated mocking to reach the same code path.
+
+### Investigated but not written
+
+- **Duplicate webview message listener in `McpConfigPanel`** — the only two
+  message types it handles (`copyToClipboard`, `openSettings`) are both
+  idempotent: VS Code's final observable state (clipboard contents, whether
+  the Settings tab is open) is identical whether a message was handled once
+  or twice by a duplicated listener. There is no UI-observable side effect
+  that distinguishes "fixed" from "still buggy," so neither a unit test
+  (would require building out `createWebviewPanel` mocking from scratch) nor
+  an E2E test (nothing to assert against) can actually verify this fix.
+- **`QuickPick` disposal on hide** (`src/extension.ts`) — both fixes live
+  inline inside `vscode.commands.registerCommand(...)` callbacks, not in an
+  independently importable function, and the object being tested for is
+  disposal of a native VS Code UI handle, which isn't observable through the
+  standard test harness. Testing this without a production-code refactor to
+  extract the QuickPick logic would need substantial new `createQuickPick`
+  mocking for a one-line dispose-on-hide fix.
+
+Both fixes were reviewed by reading the diff and reasoning through the code
+path by hand rather than via an automated test — see PR history for #70 (the
+webview listener) and #74 (the QuickPick disposal).
 
 ## UI / E2E tests (`src/test/ui/*.ui.test.ts`)
 
@@ -121,9 +159,11 @@ shared-cache convention still holds.
 
 ## Known limitations
 
-- **No dedicated `mcp-server` test suite.** Unlike PromptManager, where the
-  `mcp-server` package has its own Jest config and tests, this repo's
-  `mcp-server/` package currently ships with zero tests and no `test` script.
+- **`mcp-server`'s test suite is minimal (2 files, 6 tests), not
+  comprehensive.** It covers exactly the two fixes that motivated adding test
+  infra to this package in the first place — most of `mcp-server/` (session
+  scanning, handoff prompt generation, resource/prompt handlers) has no test
+  coverage yet.
 - **UI tests are inherently slower/flakier than unit tests** for the same
   reasons documented in sibling projects — they drive a real Electron app via
   synthetic Selenium input. Only one `.ui.test.ts` file exists today, so this

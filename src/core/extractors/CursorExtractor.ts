@@ -32,6 +32,20 @@ interface CursorJsonlLine {
   };
 }
 
+/**
+ * 從 message.content 抽取文字。content 型別上宣告為陣列，但損毀/截斷的寫入
+ * 可能產生非陣列值或陣列中夾帶 null 項目，因此需防禦性處理，避免整行被
+ * 外層 catch 吞掉而遺失整條訊息。
+ */
+function extractTextFromContent(content: unknown): string {
+  if (!Array.isArray(content)) return '';
+  return content
+    .filter((c): c is { type: string; text?: string } => !!c && c.type === 'text' && !!c.text)
+    .map(c => c.text ?? '')
+    .join('\n')
+    .trim();
+}
+
 export class CursorExtractor implements IChatExtractor {
   readonly ideId = 'cursor' as const;
   readonly supportsPagedExtraction = true;
@@ -296,11 +310,7 @@ export class CursorExtractor implements IChatExtractor {
           const obj = JSON.parse(trimmed) as CursorJsonlLine;
           if (obj.role !== 'user') continue;
 
-          const text = (obj.message?.content ?? [])
-            .filter(c => c.type === 'text' && c.text)
-            .map(c => c.text ?? '')
-            .join('\n')
-            .trim();
+          const text = extractTextFromContent(obj.message?.content);
 
           if (text) {
             rl.close();
@@ -332,11 +342,7 @@ export class CursorExtractor implements IChatExtractor {
           const obj = JSON.parse(trimmed) as CursorJsonlLine;
           if (obj.role !== 'user' && obj.role !== 'assistant') continue;
 
-          const text = (obj.message?.content ?? [])
-            .filter(c => c.type === 'text' && c.text)
-            .map(c => c.text ?? '')
-            .join('\n')
-            .trim();
+          const text = extractTextFromContent(obj.message?.content);
 
           if (text) {
             messages.push({ role: obj.role, content: text });

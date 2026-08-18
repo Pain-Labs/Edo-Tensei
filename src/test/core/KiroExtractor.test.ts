@@ -197,6 +197,20 @@ describe('KiroExtractor.parseWorkspaceSessionJson', () => {
     expect(messages).toHaveLength(0)
     expect(workspaceDirectory).toBeNull()
   })
+
+  it('skips a null history entry instead of losing the whole parse', () => {
+    const raw = JSON.stringify({
+      workspaceDirectory: '/home/user/project',
+      history: [
+        null,
+        { message: { role: 'user', content: 'Still parses' } },
+      ],
+    })
+    const { messages, workspaceDirectory } = extractor().parseWorkspaceSessionJson(raw)
+    expect(workspaceDirectory).toBe('/home/user/project')
+    expect(messages).toHaveLength(1)
+    expect(messages[0]).toMatchObject({ role: 'user', content: 'Still parses' })
+  })
 })
 
 // ── parseFirstUserMessageFromWsSession ────────────────────────────────────────
@@ -240,5 +254,18 @@ describe('KiroExtractor.parseFirstUserMessageFromWsSession', () => {
   it('returns null workspaceDirectory for malformed JSON', () => {
     const { workspaceDirectory } = extractor().parseFirstUserMessageFromWsSession('bad json')
     expect(workspaceDirectory).toBeNull()
+  })
+
+  it('skips a null history entry and still finds the first user message', () => {
+    const raw = JSON.stringify({
+      workspaceDirectory: '/home/user/project',
+      history: [
+        null,
+        { message: { role: 'user', content: 'Fix the test' } },
+      ],
+    })
+    const { firstMsg, workspaceDirectory } = extractor().parseFirstUserMessageFromWsSession(raw)
+    expect(workspaceDirectory).toBe('/home/user/project')
+    expect(firstMsg).toMatchObject({ role: 'user', content: 'Fix the test' })
   })
 })

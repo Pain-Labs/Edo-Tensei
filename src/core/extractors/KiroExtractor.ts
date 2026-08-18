@@ -395,7 +395,7 @@ export class KiroExtractor implements IChatExtractor {
       if (!Array.isArray(history)) return { firstMsg: undefined, workspaceDirectory };
 
       for (const entry of history) {
-        const msg = entry.message;
+        const msg = entry?.message;
         if (!msg || msg.role !== 'user') continue;
 
         let text = '';
@@ -448,7 +448,7 @@ export class KiroExtractor implements IChatExtractor {
       if (!Array.isArray(history)) return { messages, workspaceDirectory, executionIds };
 
       for (const entry of history) {
-        const msg = entry.message;
+        const msg = entry?.message;
         if (!msg || !msg.role) continue;
 
         let text = '';

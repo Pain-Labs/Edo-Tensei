@@ -95,22 +95,29 @@ export class TraeExtractor implements IChatExtractor {
     const strings: string[] = [];
     let currentString: number[] = [];
 
+    const flush = () => {
+      if (currentString.length >= 30) {
+        try {
+          const str = Buffer.from(currentString).toString('utf8');
+          if (/[a-zA-Z\u4e00-\u9fa5]/.test(str)) {
+            strings.push(str);
+          }
+        } catch { /* ignore */ }
+      }
+      currentString = [];
+    };
+
     for (let i = 0; i < buffer.length; i++) {
       const byte = buffer[i];
       if ((byte >= 0x20 && byte <= 0x7E) || byte >= 0xA0 || byte === 0x0A || byte === 0x0D) {
         currentString.push(byte);
       } else {
-        if (currentString.length >= 30) {
-          try {
-            const str = Buffer.from(currentString).toString('utf8');
-            if (/[a-zA-Z\u4e00-\u9fa5]/.test(str)) {
-              strings.push(str);
-            }
-          } catch { /* ignore */ }
-        }
-        currentString = [];
+        flush();
       }
     }
+    // Flush a trailing run that reaches the end of the buffer without a
+    // terminating non-printable byte (otherwise the last string is dropped).
+    flush();
 
     return strings;
   }

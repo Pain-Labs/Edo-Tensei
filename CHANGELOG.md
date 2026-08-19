@@ -2,6 +2,25 @@
 
 All notable changes to the "Edo Tensei" extension will be documented in this file.
 
+## [1.9.0] - Robustness Fixes (pre-release) - 2026-08-19
+
+- **fix(mcp-server):** guard `get_mcp_config` against missing arguments (#66)
+- **fix(mcp-server):** reject non-date strings and normalize single-digit month/day in `searchSessions` time filter (#76)
+- **fix(McpConfigPanel):** stop accumulating duplicate webview message listeners (#70)
+- **fix(extension):** dispose `QuickPick` instances on hide to prevent leak (#74)
+- **fix(TimeFilter):** parse single-digit month/day date strings (#64)
+- **fix(I18n):** escape `$` in `getMessage` substitutions (#65)
+- **fix(i18n):** correct invalid JSON in zh-cn nls file (#62)
+- **fix(ClaudeExtractor):** guard against non-iterable `message.content` (#71)
+- **fix(CoworkExtractor):** guard against null/undefined entries in content array (#67)
+- **fix(CursorExtractor):** guard against malformed `message.content` shapes (#72)
+- **fix(KiroExtractor):** skip null history entries instead of crashing whole parse (#73)
+- **fix(TraeExtractor):** flush trailing printable string run at end of buffer (#75)
+- **chore(deps):** bump `postcss` (#61)
+- **ci:** gate version-bump check behind `release-ready` label (#63)
+- **test(mcp-server):** add unit test infra and cover #66/#76 fixes (#78)
+- **docs:** add current, accurate automated testing reference (#77)
+
 ## [1.8.0] - Stable Release: Claude Compact Summary, Cowork MSIX Scan Path & Maintenance - 2026-08-19
 
 Promotes the [1.7.0]–[1.7.2] pre-release content to stable unchanged — no new code in this release.

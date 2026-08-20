@@ -23,7 +23,7 @@ export class WindsurfExtractor implements IChatExtractor {
   }
 
   async extract(_workspacePath?: string, customScanPaths: string[] = []): Promise<CapturedSession> {
-    const sessions = await this.extractAll(_workspacePath);
+    const sessions = await this.extractAll(_workspacePath, customScanPaths);
     return sessions.length > 0 
       ? sessions[0] 
       : { sourceIde: this.ideId, capturedAt: new Date().toISOString(), messages: [], rawPath: this.getCascadeDir(), readStatus: 'empty' };

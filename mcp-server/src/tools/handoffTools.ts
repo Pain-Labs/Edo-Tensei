@@ -233,17 +233,17 @@ export class HandoffTools {
         const template = PROMPT_TEMPLATES.path[language] || PROMPT_TEMPLATES.path.English;
 
         prompt = template
-          .replace('{ide}', actualIde)
-          .replace('{filePath}', filePath)
-          .replace('{guide}', guide);
+          .replace('{ide}', () => actualIde)
+          .replace('{filePath}', () => filePath)
+          .replace('{guide}', () => guide);
       } else {
         // Full text mode
         const formattedMessages = this.formatMessages(messages, language);
         const template = PROMPT_TEMPLATES.fullText[language] || PROMPT_TEMPLATES.fullText.English;
 
         prompt = template
-          .replace('{ide}', actualIde)
-          .replace('{messages}', formattedMessages);
+          .replace('{ide}', () => actualIde)
+          .replace('{messages}', () => formattedMessages);
       }
 
       return createSuccess({

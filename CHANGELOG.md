@@ -2,6 +2,15 @@
 
 All notable changes to the "Edo Tensei" extension will be documented in this file.
 
+## [1.9.1] - Skill-only Agent Plugin (pre-release) - 2026-08-28
+
+- **feat(agent-plugin):** add an Agent Plugins 1.0 manifest for Skill-only installation on Windows
+- **feat(skill):** prioritize exact workspace paths and add a read-only Git common-directory fallback for linked worktrees (#94)
+- **fix(windsurf):** document both Windows session locations and require resolved absolute paths for binary handoffs
+- **docs:** add the cross-ecosystem distribution strategy, acceptance matrix, and clean-source installation guide
+- **test:** validate manifest portability, packaged references, deterministic stop rules, linked-worktree guidance, and Windsurf paths
+- **scope:** keep MCP packaging deferred to #92 and #93; this release does not add `mcp.json`
+
 ## [1.9.0] - Robustness Fixes (pre-release) - 2026-08-19
 
 - **fix(mcp-server):** guard `get_mcp_config` against missing arguments (#66)

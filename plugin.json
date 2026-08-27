@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "edo-tensei",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "description": "Recover relevant local AI coding sessions and produce a concise cross-IDE handoff on Windows.",
   "author": {
     "name": "Pain Labs",

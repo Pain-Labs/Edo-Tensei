@@ -4,7 +4,8 @@
 
 | OS | Path |
 |---|---|
-| Windows | `%APPDATA%\Windsurf\User\globalStorage\chatSessions\` |
+| Windows (VS Code storage) | `%APPDATA%\Windsurf\User\globalStorage\chatSessions\` |
+| Windows (Cascade `.pb`) | `%USERPROFILE%\.codeium\windsurf\cascade\*.pb` |
 | Linux / macOS | `~/.codeium/windsurf/cascade/*.pb` |
 
 > ⚠️ **Format: binary / encrypted** — Windsurf stores sessions in a non-public binary format. Direct text reading is not possible.
@@ -16,6 +17,8 @@ Windsurf's session format is not publicly documented and cannot be read external
 1. **Path-based handoff only**: Provide the session file path and let the receiving IDE know it cannot be read externally.
 2. **Manual summary**: Ask the user to paste the last few turns of their Windsurf conversation.
 3. **Windsurf export** (if available in your version): Check if Windsurf has a built-in export or share feature.
+
+On Windows, check both documented locations and return the selected file's resolved absolute path (`FullName`), not only its basename.
 
 ## Best-Effort Text Extraction (Linux, heuristic only)
 

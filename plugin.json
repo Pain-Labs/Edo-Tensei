@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "edo-tensei",
+  "version": "1.9.0",
+  "description": "Recover relevant local AI coding sessions and produce a concise cross-IDE handoff on Windows.",
+  "author": {
+    "name": "Pain Labs",
+    "url": "https://github.com/Pain-Labs"
+  },
+  "homepage": "https://github.com/Pain-Labs/Edo-Tensei#readme",
+  "repository": "https://github.com/Pain-Labs/Edo-Tensei",
+  "license": "MIT",
+  "keywords": [
+    "agent-skills",
+    "cross-ide",
+    "local-first",
+    "session-handoff",
+    "windows"
+  ]
+}

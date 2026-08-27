@@ -1,7 +1,6 @@
 ---
 name: edo-tensei
-description: Transfers AI session context across IDEs (Claude Code, Claude.ai Cowork, Copilot, Cursor, Kiro, Windsurf, Trae, Antigravity, Codex) by reading local session files directly. Works in any environment with file system access — no VS Code or MCP required. Use this skill when the user wants to continue work from another AI tool, summarize a recent session, or generate a structured handoff prompt.
-argument-hint: "[claude|cowork|copilot|cursor|codex|kiro|windsurf|trae|antigravity]"
+description: Transfers local AI session context across Claude Code, Claude.ai Cowork, Copilot, Cursor, Kiro, Windsurf, Trae, Antigravity, and Codex on Windows. Use when the user wants to continue work from another AI tool, summarize a recent session, or generate a structured handoff prompt without requiring VS Code or MCP.
 ---
 
 # Edo Tensei
@@ -9,6 +8,8 @@ argument-hint: "[claude|cowork|copilot|cursor|codex|kiro|windsurf|trae|antigravi
 Use this skill to take over work from another AI IDE, or recover the latest session context without manually pasting the whole conversation.
 
 This skill works directly via file system access — no VS Code extension or MCP server required.
+
+**Public support scope:** Windows only. macOS and Linux paths below are retained as reference material, but they are not part of the current acceptance matrix.
 
 ## Primary Goal
 
@@ -56,6 +57,31 @@ Before reading any large file:
    - `role === "user"` or `role === "assistant"`
    - content blocks with `type === "text"`
 4. Skip tool-call noise unless it explains the blocker.
+
+### Selection and Stop Rules
+
+1. If the user names an IDE, search only that IDE unless they explicitly allow fallback.
+2. Within the allowed IDE set, match the current workspace by normalized absolute path before considering modification time. Exact normalized absolute path matches always win; do not select a globally newer session from another project.
+3. If no exact path match exists and the current workspace is a Git worktree, compare the canonical Git common directory for the current workspace and candidate workspace paths that still exist. Use this only as a repository-level fallback; never use a remote URL alone as repository identity.
+4. If exactly one candidate workspace shares the current Git common directory, select its newest session and state that the exact workspace path was not found and repository-level fallback was used.
+5. If multiple candidate workspaces share the current Git common directory, list the candidates and ask the user to choose. Do not guess based on modification time.
+6. If multiple candidates have the same basename but different absolute workspace paths and Git identity cannot resolve them, show the candidates and ask the user to choose. Do not guess.
+7. If the source is binary, encrypted, locked, or blocked by permissions and the documented reader cannot access it, report the exact path and limitation, then stop. Do not invent content, silently switch projects, or attempt unsafe permission changes.
+8. If no candidate can be tied to the current workspace with reasonable confidence, return a concise “no matching session” result and list the paths checked.
+
+### Git Worktree Identity Fallback (Windows)
+
+Use read-only Git discovery only after exact-path matching fails:
+
+```powershell
+$workspacePath = (Get-Location).Path
+$commonDirOutput = git -C $workspacePath rev-parse --path-format=absolute --git-common-dir 2>$null
+if ($LASTEXITCODE -eq 0 -and $commonDirOutput) {
+  $canonicalCommonDir = [System.IO.Path]::GetFullPath($commonDirOutput.Trim())
+}
+```
+
+Run the same command only for candidate workspace paths that still exist. Normalize case and directory separators before comparison on Windows. Do not write to either worktree, alter Git configuration, create branches, or treat an inaccessible/deleted candidate path as a match.
 
 ---
 

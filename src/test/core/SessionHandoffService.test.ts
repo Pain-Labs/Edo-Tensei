@@ -98,6 +98,13 @@ describe('SessionHandoffService', () => {
   })
 })
 
+describe('SessionHandoffService.dispose', () => {
+  it('releases the onDidUpdateSessions emitter without throwing', () => {
+    const service = new SessionHandoffService({} as any)
+    expect(() => service.dispose()).not.toThrow()
+  })
+})
+
 describe('SessionHandoffService.buildReadableTranscript', () => {
   it('puts workspace path on the second line when workspacePath is set', () => {
     const service = new SessionHandoffService({} as any)

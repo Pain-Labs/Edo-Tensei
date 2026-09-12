@@ -298,6 +298,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     const sessionService = new SessionHandoffService(context);
     const sessionHandoffProvider = new SessionHandoffProvider(sessionService);
+    context.subscriptions.push(sessionHandoffProvider, sessionService);
     let isScanning = false; // Throttle guard: prevents duplicate scan from rapid button clicks
 
     const sessionPreviewKeyToId = new Map<string, string>();

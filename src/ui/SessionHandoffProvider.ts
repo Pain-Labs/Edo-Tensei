@@ -183,12 +183,19 @@ export class SessionItem extends vscode.TreeItem {
 
 // ── Provider ────────────────────────────────────────────────────────────────
 
-export class SessionHandoffProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
+export class SessionHandoffProvider implements vscode.TreeDataProvider<vscode.TreeItem>, vscode.Disposable {
     private _onDidChangeTreeData = new vscode.EventEmitter<vscode.TreeItem | undefined | null | void>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+    private readonly sessionUpdateSubscription: vscode.Disposable;
 
     constructor(private sessionService: SessionHandoffService) {
-        this.sessionService.onDidUpdateSessions(() => this.refresh());
+        this.sessionUpdateSubscription = this.sessionService.onDidUpdateSessions(() => this.refresh());
+    }
+
+    /** Releases the tree-data EventEmitter and the session-update subscription. */
+    dispose(): void {
+        this.sessionUpdateSubscription.dispose();
+        this._onDidChangeTreeData.dispose();
     }
 
     /**

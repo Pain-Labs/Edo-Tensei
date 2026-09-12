@@ -873,6 +873,7 @@ export class CopilotExtractor implements IChatExtractor {
     const messages: ChatMessage[] = [];
 
     for (const req of requests) {
+      if (!req) continue;
       const userText = req.message?.text?.trim() ?? '';
       if (userText) {
         messages.push({

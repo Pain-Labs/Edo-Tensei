@@ -135,6 +135,24 @@ describe('loadJsonlFull', () => {
   })
 })
 
+// ─── parseMessages (white-box) ─────────────────────────────────────────────────
+
+describe('parseMessages', () => {
+  it('skips a null entry in requests[] instead of dropping the whole session', () => {
+    const ext = new CopilotExtractor()
+    const requests = [
+      null,
+      { message: { text: 'hello' }, response: [{ value: 'hi there' }] },
+    ]
+
+    const messages: Array<{ role: string; content: string }> = (ext as any).parseMessages(requests)
+
+    expect(messages).toHaveLength(2)
+    expect(messages[0]).toMatchObject({ role: 'user', content: 'hello' })
+    expect(messages[1]).toMatchObject({ role: 'assistant', content: 'hi there' })
+  })
+})
+
 // ─── extractAll — scan-all ─────────────────────────────────────────────────────
 
 describe('extractAll — scan-all (no workspace filter)', () => {

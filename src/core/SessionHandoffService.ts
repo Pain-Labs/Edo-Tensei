@@ -44,6 +44,11 @@ export class SessionHandoffService {
         ];
     }
 
+    /** Releases the onDidUpdateSessions EventEmitter's internal listeners. */
+    public dispose(): void {
+        this._onDidUpdateSessions.dispose();
+    }
+
     private getCustomPaths(ideId: string): string[] {
         try {
             const customConfig = vscode.workspace.getConfiguration('edoTensei').get<Record<string, string[]>>('customScanPaths') || {};

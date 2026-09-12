@@ -149,6 +149,20 @@ describe('SessionHandoffProvider.resolveTreeItem', () => {
   })
 })
 
+// ── dispose ───────────────────────────────────────────────────────────────────
+
+describe('SessionHandoffProvider.dispose', () => {
+  it('disposes the session-update subscription and is safe to call without throwing', () => {
+    const subscriptionDispose = vi.fn()
+    const provider = new SessionHandoffProvider(
+      makeService({ onDidUpdateSessions: (_: () => void) => ({ dispose: subscriptionDispose }) })
+    )
+
+    expect(() => provider.dispose()).not.toThrow()
+    expect(subscriptionDispose).toHaveBeenCalledTimes(1)
+  })
+})
+
 // ── getChildren ───────────────────────────────────────────────────────────────
 
 describe('SessionHandoffProvider.getChildren', () => {

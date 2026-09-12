@@ -130,6 +130,18 @@ describe('KiroExtractor.parseLegacyKiroChat', () => {
   it('returns empty array for malformed JSON', () => {
     expect(extractor().parseLegacyKiroChat('not-json')).toHaveLength(0)
   })
+
+  it('skips a null chat entry instead of losing the whole parse', () => {
+    const raw = JSON.stringify({
+      chat: [
+        null,
+        { role: 'human', content: 'Still parses' },
+      ],
+    })
+    const messages = extractor().parseLegacyKiroChat(raw)
+    expect(messages).toHaveLength(1)
+    expect(messages[0]).toMatchObject({ role: 'user', content: 'Still parses' })
+  })
 })
 
 // ── parseWorkspaceSessionJson ─────────────────────────────────────────────────

@@ -675,7 +675,7 @@ export class KiroExtractor implements IChatExtractor {
       if (!Array.isArray(chatArr)) return [];
 
       for (const msg of chatArr) {
-        if (!msg.content || !msg.role) continue;
+        if (!msg?.content || !msg?.role) continue;
         const text = this.sanitizeLegacyKiroMessage(msg.role, msg.content);
         if (!text) continue;
 

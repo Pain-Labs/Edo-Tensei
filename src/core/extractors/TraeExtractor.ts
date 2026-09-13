@@ -46,8 +46,10 @@ export class TraeExtractor implements IChatExtractor {
           for (const file of files) {
             if (file.endsWith('_codekg.db')) {
               const filePath = path.join(fullDirPath, file);
-              const fStat = await fs.stat(filePath);
-              candidates.push({ filePath, mtime: fStat.mtimeMs });
+              try {
+                const fStat = await fs.stat(filePath);
+                candidates.push({ filePath, mtime: fStat.mtimeMs });
+              } catch { /* file may have been removed between readdir and stat; skip it */ }
             }
           }
         } catch { /* skip inaccessible dirs */ }

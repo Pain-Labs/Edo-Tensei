@@ -37,4 +37,36 @@ describe('TraeExtractor', () => {
     expect(result.messages).toHaveLength(1)
     expect(result.messages[0].content).toBe(trailingText)
   })
+
+  it('does not skip remaining .db candidates in a directory when one file stat races (e.g. deleted after readdir)', async () => {
+    const storageDir = path.join(process.env.APPDATA || '', 'Trae', 'User', 'globalStorage', '.ckg', 'storage')
+    const hashDir = path.join(storageDir, 'hash1')
+    const missingPath = path.join(hashDir, 'gone_codekg.db')
+    const goodPath = path.join(hashDir, 'foo_codekg.db')
+
+    vi.mocked(fsp.access).mockResolvedValue(undefined)
+    vi.mocked(fsp.readdir).mockImplementation(async (dir: any) => {
+      if (dir === storageDir) return ['hash1'] as any
+      // 'gone_codekg.db' is listed by readdir but removed before stat() runs.
+      if (dir === hashDir) return ['gone_codekg.db', 'foo_codekg.db'] as any
+      return [] as any
+    })
+    vi.mocked(fsp.stat).mockImplementation(async (p: any) => {
+      if (p === hashDir) return { isDirectory: () => true } as any
+      if (p === missingPath) throw new Error('ENOENT: no such file or directory')
+      if (p === goodPath) return { mtimeMs: 1000 } as any
+      return { isDirectory: () => false, mtimeMs: 0 } as any
+    })
+
+    const trailingText = 'b'.repeat(60)
+    vi.mocked(fsp.readFile).mockResolvedValue(Buffer.from(trailingText, 'utf8') as any)
+
+    const ext = new TraeExtractor()
+    const result = await ext.extract()
+
+    expect(result.readStatus).toBe('success')
+    expect(result.rawPath).toBe(goodPath)
+    expect(result.messages).toHaveLength(1)
+    expect(result.messages[0].content).toBe(trailingText)
+  })
 })

@@ -466,9 +466,12 @@ export async function activate(context: vscode.ExtensionContext) {
                     () => {
                         if (sessionService.isScanningIde(item.ideId)) {
                             // Another click already started the scan — just wait for it to finish.
+                            // Keyed on isScanningIde (not isIdeScanned) so a failed scan still
+                            // resolves this wait and disposes the subscription instead of hanging
+                            // forever, since scanSingleIde() does not mark an IDE as scanned on error.
                             return new Promise<void>(resolve => {
                                 const sub = sessionService.onDidUpdateSessions(() => {
-                                    if (sessionService.isIdeScanned(item.ideId)) {
+                                    if (!sessionService.isScanningIde(item.ideId)) {
                                         sub.dispose();
                                         resolve();
                                     }

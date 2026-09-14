@@ -188,7 +188,7 @@ export class ClaudeExtractor implements IChatExtractor {
           cwd = obj.cwd;
         }
 
-        if (!firstMsg && (obj.type || '').toLowerCase() === 'user') {
+        if (!firstMsg && (typeof obj.type === 'string' ? obj.type.toLowerCase() : '') === 'user') {
           const msg = this.extractMessageFromRecord(obj);
           if (msg) firstMsg = msg;
         }
@@ -253,7 +253,7 @@ export class ClaudeExtractor implements IChatExtractor {
    * @param maxItemChars - if set, truncates each content item to this length
    */
   private extractMessageFromRecord(obj: ClaudeJsonlRecord, maxItemChars?: number): ChatMessage | undefined {
-    const type = (obj.type || '').toLowerCase();
+    const type = typeof obj.type === 'string' ? obj.type.toLowerCase() : '';
     if (type !== 'user' && type !== 'assistant') return undefined;
 
     const role: ChatMessage['role'] = type === 'user' ? 'user' : 'assistant';

@@ -112,6 +112,17 @@ describe('ClaudeExtractor.parseClaudeJsonlWithMeta', () => {
     expect(messages[0].content).toBe('kept')
   })
 
+  it('skips a record whose type field is a non-string without throwing', () => {
+    const raw = [
+      JSON.stringify({ type: 123, message: { role: 'user', content: [{ type: 'text', text: 'ignored' }] } }),
+      userLine(['kept']),
+    ].join('\n')
+    expect(() => extractor().parseClaudeJsonlWithMeta(raw)).not.toThrow()
+    const { messages } = extractor().parseClaudeJsonlWithMeta(raw)
+    expect(messages).toHaveLength(1)
+    expect(messages[0].content).toBe('kept')
+  })
+
   it('skips records whose content produces empty text', () => {
     const raw = JSON.stringify({
       type: 'user',

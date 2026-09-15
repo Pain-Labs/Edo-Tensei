@@ -72,6 +72,24 @@ describe('AntigravityExtractor.parseOverview', () => {
     const { messages } = makeExtractor().parseOverview(raw)
     expect(messages).toHaveLength(0)
   })
+
+  it('skips a USER record whose content field is a non-string without throwing', () => {
+    const badLine = JSON.stringify({ step_index: 0, source: 'USER_EXPLICIT', content: { nested: true }, created_at: '2026-05-19T06:00:00Z' })
+    const raw = [badLine, userLine('kept')].join('\n')
+    expect(() => makeExtractor().parseOverview(raw)).not.toThrow()
+    const { messages } = makeExtractor().parseOverview(raw)
+    expect(messages).toHaveLength(1)
+    expect(messages[0].content).toBe('kept')
+  })
+
+  it('skips a MODEL record whose content field is a non-string without throwing', () => {
+    const badLine = JSON.stringify({ step_index: 1, source: 'MODEL', type: 'PLANNER_RESPONSE', content: 42, created_at: '2026-05-19T06:00:01Z' })
+    const raw = [badLine, modelLine('kept')].join('\n')
+    expect(() => makeExtractor().parseOverview(raw)).not.toThrow()
+    const { messages } = makeExtractor().parseOverview(raw)
+    expect(messages).toHaveLength(1)
+    expect(messages[0].content).toBe('kept')
+  })
 })
 
 describe('AntigravityExtractor.extractAll', () => {

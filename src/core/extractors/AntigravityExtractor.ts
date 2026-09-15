@@ -153,8 +153,9 @@ export class AntigravityExtractor implements IChatExtractor {
         const obj = JSON.parse(trimmed) as OverviewLine;
 
         // User messages
-        if ((obj.source === 'USER' || obj.source === 'USER_EXPLICIT') && (obj.input || obj.content || obj.text)) {
-          let content = obj.input || obj.content || obj.text || '';
+        const userText = this.firstStringField(obj.input, obj.content, obj.text);
+        if ((obj.source === 'USER' || obj.source === 'USER_EXPLICIT') && userText) {
+          let content = userText;
           // Antigravity wraps the user's actual text in <USER_REQUEST>...</USER_REQUEST>.
           // Extract only that portion and discard surrounding system metadata sections
           // (<ADDITIONAL_METADATA>, <USER_SETTINGS_CHANGE>, etc.).
@@ -178,8 +179,9 @@ export class AntigravityExtractor implements IChatExtractor {
         // Model messages
         else if (obj.source === 'MODEL' && obj.type === 'PLANNER_RESPONSE') {
           // Case 1: Direct content
-          if (obj.content || obj.text) {
-             let content = obj.content || obj.text || '';
+          const modelText = this.firstStringField(obj.content, obj.text);
+          if (modelText) {
+             let content = modelText;
              // 偵測 Antigravity 日誌的截斷標記，但不將其隱藏
              const truncMatch = content.match(/<truncated \d+ bytes>\s*$/);
              if (truncMatch) {
@@ -207,5 +209,17 @@ export class AntigravityExtractor implements IChatExtractor {
     }
 
     return { messages, hasTruncation };
+  }
+
+  /**
+   * Antigravity 的日誌欄位型別宣告為 string，但實際寫入可能因版本差異
+   * 夾帶非字串值（number/object）。回傳第一個型別為 string 的候選值，
+   * 避免呼叫端對非字串值呼叫 .match() 等字串方法而拋出例外。
+   */
+  private firstStringField(...values: Array<string | undefined>): string | undefined {
+    for (const value of values) {
+      if (typeof value === 'string' && value) return value;
+    }
+    return undefined;
   }
 }

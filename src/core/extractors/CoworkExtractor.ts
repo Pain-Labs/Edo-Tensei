@@ -195,8 +195,8 @@ export class CoworkExtractor implements IChatExtractor {
 
             candidates.push({
               auditPath,
-              lastActivityAt: meta.lastActivityAt ?? auditSt.mtimeMs,
-              title: meta.title || 'Cowork session',
+              lastActivityAt: typeof meta.lastActivityAt === 'number' ? meta.lastActivityAt : auditSt.mtimeMs,
+              title: typeof meta.title === 'string' && meta.title ? meta.title : 'Cowork session',
               sessionId: entry.replace(/^local_/, ''),
             });
           }

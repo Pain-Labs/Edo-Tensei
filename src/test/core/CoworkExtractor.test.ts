@@ -305,6 +305,34 @@ describe('CoworkExtractor file-based', () => {
     })
   })
 
+  // ── extractAll ─────────────────────────────────────────────────────────────
+  // Regression: a child session's metadata JSON is written by the Cowork app,
+  // not validated against CoworkMetadata — a schema drift or partial write
+  // could leave lastActivityAt as a non-numeric value. new Date(nonNumber)
+  // produces an Invalid Date, and .toISOString() on it throws a RangeError,
+  // which used to reject the whole Promise.all batch and drop every other
+  // candidate session alongside the malformed one.
+  describe('extractAll', () => {
+    it('falls back to file mtime when lastActivityAt is not a number, without dropping the batch', async () => {
+      const convDir = join(tmpDir, 'session-uuid', 'conv-uuid')
+      await mkdir(convDir, { recursive: true })
+
+      const childDir = join(convDir, 'local_child1')
+      await mkdir(childDir, { recursive: true })
+      await writeFile(join(childDir, 'audit.jsonl'), [userRecord('Hello '.repeat(20))].join('\n'))
+      await writeFile(join(convDir, 'local_child1.json'), JSON.stringify({ title: 'Bad session', lastActivityAt: 'not-a-number' }))
+
+      const extractor = ext()
+      extractor.getScanPaths = () => [] // isolate from this machine's real default scan paths
+      const sessions = await extractor.extractAll(undefined, [tmpDir])
+
+      expect(sessions).toHaveLength(1)
+      expect(sessions[0].title).toBe('Bad session')
+      expect(() => new Date(sessions[0].capturedAt)).not.toThrow()
+      expect(Number.isNaN(new Date(sessions[0].capturedAt).getTime())).toBe(false)
+    })
+  })
+
   // ── getWindowsMsixScanPaths ───────────────────────────────────────────────────
   // Regression: Claude Desktop installed via the Microsoft Store (MSIX/AppX)
   // runs in an AppContainer, so Windows redirects its "%APPDATA%" writes into

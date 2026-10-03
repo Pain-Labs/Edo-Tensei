@@ -56,9 +56,11 @@ export class TimeFilter {
   private static parseDate(input: string): Date | undefined {
     const match = input.replace(/\//g, '-').match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
     if (!match) return undefined;
-    const [, year, month, day] = match;
-    const d = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00`);
-    return Number.isNaN(d.getTime()) ? undefined : d;
+    const [year, month, day] = match.slice(1).map(Number);
+    const d = new Date(year, month - 1, day);
+    // Reject impossible calendar dates (e.g. 2026-02-31) instead of letting Date roll them over.
+    if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return undefined;
+    return d;
   }
 
   private static startOfDay(d: Date): Date {

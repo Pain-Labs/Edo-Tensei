@@ -521,9 +521,11 @@ export class SessionTools {
   private parseDate(input: string): Date | undefined {
     const match = input.replace(/\//g, '-').match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
     if (!match) return undefined;
-    const [, year, month, day] = match;
-    const date = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00`);
-    return Number.isNaN(date.getTime()) ? undefined : date;
+    const [year, month, day] = match.slice(1).map(Number);
+    const date = new Date(year, month - 1, day);
+    // Reject impossible calendar dates (e.g. 2026-02-31) instead of letting Date roll them over.
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return undefined;
+    return date;
   }
 
   private startOfDay(date: Date): Date {

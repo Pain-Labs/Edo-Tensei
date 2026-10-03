@@ -41,4 +41,17 @@ describe('SessionTools - parseTimeExpression date parsing', () => {
 
     expect(result).toBeUndefined();
   });
+
+  it('rejects impossible calendar dates instead of rolling them over', () => {
+    const tools = new SessionTools();
+
+    expect((tools as any).parseTimeExpression('2026-02-31')).toBeUndefined();
+    expect((tools as any).parseTimeExpression('2026/4/31')).toBeUndefined();
+    expect((tools as any).parseTimeExpression('2026-02-30 to 2026-03-05')).toBeUndefined();
+
+    const leap = (tools as any).parseTimeExpression('2028-02-29');
+    expect(leap).toBeDefined();
+    expect(leap.start.getMonth()).toBe(1);
+    expect(leap.start.getDate()).toBe(29);
+  });
 });

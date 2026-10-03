@@ -70,6 +70,20 @@ describe('TimeFilter', () => {
     })
   })
 
+  it('rejects impossible calendar dates instead of rolling them over', () => {
+    expect(TimeFilter.parse('2026-02-31')).toBeUndefined()
+    expect(TimeFilter.parse('2026/4/31')).toBeUndefined()
+    expect(TimeFilter.parse('2026-02-30 to 2026-03-05')).toBeUndefined()
+    expect(TimeFilter.parse('2026-01-00')).toBeUndefined()
+
+    expect(TimeFilter.parse('2028-02-29')).toEqual({
+      from: new Date('2028-02-29T00:00:00'),
+      to: new Date('2028-02-29T23:59:59.999'),
+      label: '2028-02-29',
+    })
+    expect(TimeFilter.parse('2026-02-29')).toBeUndefined()
+  })
+
   it('checks whether ISO timestamps are inside parsed ranges', () => {
     const range = TimeFilter.parse('2026-05-01 to 2026-05-03')
 

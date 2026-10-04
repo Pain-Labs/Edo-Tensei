@@ -35,18 +35,22 @@ export class CodexExtractor implements IChatExtractor {
 
   async extractAll(workspacePath?: string, customScanPaths: string[] = []): Promise<CapturedSession[]> {
     const sessionsDir = this.getSessionsDir();
-    const dirsToScan = [...customScanPaths, sessionsDir];
-    const rolloutFiles: string[] = [];
+    const dirsToScan = [...new Set([...customScanPaths, sessionsDir])];
+    // Keyed by resolved path: a custom scan path that equals, contains, or is nested
+    // inside the default sessions dir would otherwise yield every rollout twice.
+    const rolloutFileSet = new Set<string>();
 
     for (const scanDir of dirsToScan) {
       try {
         await fs.access(scanDir);
         const files = await this.findRolloutFiles(scanDir);
-        rolloutFiles.push(...files);
+        for (const f of files) rolloutFileSet.add(path.resolve(f));
       } catch {
         continue;
       }
     }
+
+    const rolloutFiles = [...rolloutFileSet];
 
     const results: CapturedSession[] = [];
 

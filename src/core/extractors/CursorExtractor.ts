@@ -132,6 +132,10 @@ export class CursorExtractor implements IChatExtractor {
     // Phase 1: stat-only pass across all projects — no content reading yet.
     type Candidate = { jsonlPath: string; projectDir: string; uuidDir: string; mtimeMs: number; size: number };
     const candidates: Candidate[] = [];
+    // A custom scan path that resolves to the default projects dir (or to another
+    // custom path) would otherwise yield every transcript twice, and those
+    // duplicates would also consume pagination slots.
+    const seenJsonlPaths = new Set<string>();
 
     for (const projectsDir of dirsToScan) {
       try {
@@ -159,7 +163,14 @@ export class CursorExtractor implements IChatExtractor {
           } catch { return []; }
         })
       );
-      for (const batch of batches) candidates.push(...batch);
+      for (const batch of batches) {
+        for (const candidate of batch) {
+          const key = path.resolve(candidate.jsonlPath);
+          if (seenJsonlPaths.has(key)) continue;
+          seenJsonlPaths.add(key);
+          candidates.push(candidate);
+        }
+      }
     }
 
     // Sort by mtime DESC, then apply pagination.

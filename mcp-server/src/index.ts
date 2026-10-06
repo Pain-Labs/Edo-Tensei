@@ -17,19 +17,16 @@ import * as path from 'path';
 import * as os from 'os';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { EdoTenseiMCPServer } from './server.js';
+import { McpState, parseState } from './utils/state.js';
 
 /** State file stored at ~/.edo-tensei-mcp-state.json */
 const STATE_FILE = path.join(os.homedir(), '.edo-tensei-mcp-state.json');
-
-interface McpState {
-  lastWorkspaceRoot?: string;
-}
 
 function loadState(): McpState {
   try {
     if (fs.existsSync(STATE_FILE)) {
       const raw = fs.readFileSync(STATE_FILE, 'utf-8');
-      return JSON.parse(raw) as McpState;
+      return parseState(raw);
     }
   } catch {
     // Ignore read errors; treat as empty state

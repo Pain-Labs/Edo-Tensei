@@ -246,7 +246,12 @@ export class CoworkExtractor implements IChatExtractor {
   private async readChildMeta(metaPath: string): Promise<CoworkMetadata> {
     try {
       const raw = await fs.readFile(metaPath, 'utf8');
-      return JSON.parse(raw) as CoworkMetadata;
+      const parsed: unknown = JSON.parse(raw);
+      // A valid-JSON-but-non-object file (null, array, number) would otherwise
+      // make callers throw on `meta.lastActivityAt`.
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as CoworkMetadata)
+        : {};
     } catch {
       return {};
     }

@@ -303,6 +303,13 @@ describe('CoworkExtractor file-based', () => {
       const meta = await ext().readChildMeta(file)
       expect(meta).toEqual({})
     })
+
+    it.each(['null', '[]', '42', '"str"'])('returns empty object for non-object JSON (%s)', async (body) => {
+      const file = join(tmpDir, 'nonobj.json')
+      await writeFile(file, body)
+      const meta = await ext().readChildMeta(file)
+      expect(meta).toEqual({})
+    })
   })
 
   // ── getWindowsMsixScanPaths ───────────────────────────────────────────────────

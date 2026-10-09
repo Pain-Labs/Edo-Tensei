@@ -135,7 +135,14 @@ export class SessionSearchEngine {
   private matchesWorkspace(session: CapturedSession, workspace: string): boolean {
     if (!session.workspacePath) return false;
     const sessionWs = this.normalizePath(session.workspacePath);
-    return sessionWs === workspace || sessionWs.includes(workspace) || workspace.includes(sessionWs);
+    return this.isSameOrNested(sessionWs, workspace) || this.isSameOrNested(workspace, sessionWs);
+  }
+
+  // Path-boundary containment: '/a/foo' contains '/a/foo/bar' but not '/a/foobar'.
+  private isSameOrNested(parent: string, child: string): boolean {
+    if (parent === child) return true;
+    const prefix = parent.endsWith('/') ? parent : `${parent}/`;
+    return child.startsWith(prefix);
   }
 
   private normalizePath(value: string): string {

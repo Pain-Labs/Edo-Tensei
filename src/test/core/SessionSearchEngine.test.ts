@@ -123,4 +123,16 @@ describe('SessionSearchEngine', () => {
     expect(result.snippets).toHaveLength(5)
     expect(result.snippets.filter(snippet => snippet.includes('message'))).toHaveLength(2)
   })
+
+  it('matches workspace filters on path boundaries, not raw substrings', () => {
+    const engine = new SessionSearchEngine()
+    const sessions = [
+      session({ sessionId: 'foo', workspacePath: '/work/foo' }),
+      session({ sessionId: 'foobar', workspacePath: '/work/foobar' }),
+      session({ sessionId: 'nested', workspacePath: '/work/foo/sub' }),
+    ]
+
+    expect(engine.search(sessions, { workspacePath: '/work/foo' }).map(m => m.session.sessionId).sort()).toEqual(['foo', 'nested'])
+    expect(engine.search(sessions, { workspacePath: '/work/foo/' }).map(m => m.session.sessionId).sort()).toEqual(['foo', 'nested'])
+  })
 })

@@ -269,3 +269,24 @@ describe('KiroExtractor.parseFirstUserMessageFromWsSession', () => {
     expect(firstMsg).toMatchObject({ role: 'user', content: 'Fix the test' })
   })
 })
+
+// ── parseGraphMessages ────────────────────────────────────────────────────────
+
+describe('KiroExtractor.parseGraphMessages', () => {
+  it('skips null messages and null entries instead of throwing', () => {
+    const messages = extractor().parseGraphMessages([
+      null,
+      {
+        role: 'bot',
+        entries: [
+          null,
+          { type: 'text', text: 'Hello from the graph' },
+          { type: 'toolUse', name: 'readFile', input: { path: 'a.ts' } },
+        ],
+      },
+    ])
+    expect(messages).toHaveLength(1)
+    expect(messages[0]).toMatchObject({ role: 'assistant', content: 'Hello from the graph' })
+    expect(messages[0].toolCalls).toHaveLength(1)
+  })
+})

@@ -528,7 +528,7 @@ export class KiroExtractor implements IChatExtractor {
 
     if (Array.isArray(data.actions)) {
       for (const action of data.actions) {
-        const subId = action.output?.executionId;
+        const subId = action?.output?.executionId;
         if (subId) {
           const subData = await this.findExecutionData(rootDir, subId);
           if (subData?.graph?.context?.messages) {
@@ -593,7 +593,7 @@ export class KiroExtractor implements IChatExtractor {
     if (!Array.isArray(graphMessages)) return results;
 
     for (const msg of graphMessages) {
-      const role = msg.role === 'bot' || msg.role === 'assistant' ? 'assistant' : undefined;
+      const role = msg?.role === 'bot' || msg?.role === 'assistant' ? 'assistant' : undefined;
       if (!role) continue;
 
       const entries = msg.entries;
@@ -603,10 +603,10 @@ export class KiroExtractor implements IChatExtractor {
       const tools: any[] = [];
 
       for (const entry of entries) {
-        if (entry.type === 'text' && typeof entry.text === 'string') {
+        if (entry?.type === 'text' && typeof entry.text === 'string') {
           if (entry.text.includes('<identity>')) continue;
           textContent += entry.text + '\n';
-        } else if (entry.type === 'toolUse') {
+        } else if (entry?.type === 'toolUse') {
           tools.push({ name: entry.name || entry.toolName, args: entry.input || entry.args });
         }
       }

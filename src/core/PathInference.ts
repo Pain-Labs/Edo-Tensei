@@ -157,7 +157,7 @@ export class PathInference {
 
   private static isInside(root: string, target: string): boolean {
     const rel = path.relative(path.resolve(root), path.resolve(target));
-    return rel === '' || (!!rel && !rel.startsWith('..') && !path.isAbsolute(rel));
+    return rel === '' || (!!rel && rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel));
   }
 
   private static normalizeMention(mention: string): string | undefined {

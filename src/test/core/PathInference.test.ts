@@ -103,4 +103,15 @@ describe('PathInference', () => {
       })
     })
   })
+
+  it('treats a sibling-looking dot-dot-prefixed directory name as inside the candidate workspace', () => {
+    const workspace = path.resolve(os.tmpdir(), 'edo-dotdot-ws')
+    const mention = path.join(workspace, '..cache', 'file.ts')
+    const result = PathInference.inferWorkspacePath(
+      [{ role: 'user', content: mention }],
+      { candidateWorkspacePath: workspace },
+    )
+    expect(result.workspacePath).toBe(workspace)
+    expect(result.confidence).toBeGreaterThanOrEqual(0.5)
+  })
 })
